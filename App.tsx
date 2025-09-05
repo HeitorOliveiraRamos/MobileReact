@@ -1,45 +1,60 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import { Text, View, TouchableOpacity, StyleSheet} from 'react-native';
 import {
   SafeAreaProvider,
-  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { useState } from 'react';
 
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+  const [count, setCount] = useState(0);
+
+  const incrementCounter = () => {
+    setCount(count + 1);
+  };
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <View style={styles.container}>
+        <Text style={styles.title}>Click Counter</Text>
+        <Text style={styles.counter}>{count}</Text>
+        <TouchableOpacity style={styles.button} onPress={incrementCounter}>
+          <Text style={styles.buttonText}>Click Me!</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaProvider>
-  );
-}
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
+  },
+  counter: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    marginBottom: 30,
+    color: '#007AFF',
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
+
 
 export default App;
