@@ -11,10 +11,10 @@ function App() {
 
     return (<SafeAreaProvider>
             <View style={styles.container}>
-                <Text style={styles.title}>Click Counter</Text>
+                <Text style={styles.title}>Contador de cliques</Text>
                 <Text style={styles.counter}>{count}</Text>
                 <TouchableOpacity style={styles.button} onPress={incrementCounter}>
-                    <Text style={styles.buttonText}>Click Me!</Text>
+                    <Text style={styles.buttonText}>Clica ai!</Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaProvider>);
