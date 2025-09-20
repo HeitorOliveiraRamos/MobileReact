@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {api} from '../api/client';
@@ -18,82 +18,63 @@ type Message = {
 
 // Componente para animação de texto palavra por palavra
 const AnimatedText = React.memo(({text, onAnimationComplete}: {text: string; onAnimationComplete?: () => void}) => {
-  const words = text.split(' ');
-  const [animatedValues, setAnimatedValues] = useState<Animated.Value[]>([]);
+  // Palavras derivadas do texto (remove espaços extras)
+  const words = useMemo(() => text.split(/\s+/).filter(Boolean), [text]);
 
-  // Inicializar valores animados quando o texto mudar
+  // Valores animados por palavra (recriados quando o texto muda)
+  const animatedValues = useMemo(() => words.map(() => new Animated.Value(0)), [words]);
+
+  // Rodar animação em cascata quando o texto mudar
   useEffect(() => {
-    const newAnimatedValues = words.map(() => new Animated.Value(0));
-    setAnimatedValues(newAnimatedValues);
-  }, [words]);
+    animatedValues.forEach(v => v.setValue(0));
 
-  // Executar animação quando os valores animados estiverem prontos
-  useEffect(() => {
-    if (animatedValues.length === 0 || animatedValues.length !== words.length) {
-      return;
-    }
+    const animations = words.map((_, i) =>
+      Animated.timing(animatedValues[i], {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      })
+    );
 
-    // Reset all values to 0
-    animatedValues.forEach(value => value.setValue(0));
-
-    // Start word-by-word animation
-    const animateWords = () => {
-      words.forEach((_, index) => {
-        setTimeout(() => {
-          Animated.timing(animatedValues[index], {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }).start(() => {
-            // Call completion callback when last word is animated
-            if (index === words.length - 1 && onAnimationComplete) {
-              setTimeout(onAnimationComplete, 100);
-            }
-          });
-        }, index * 200); // 200ms delay between words
-      });
-    };
-
-    // Small delay before starting animation
-    const timer = setTimeout(animateWords, 200);
-    return () => clearTimeout(timer);
-  }, [animatedValues, words, onAnimationComplete]);
-
-  // Don't render anything until animated values are ready
-  if (animatedValues.length !== words.length) {
-    return <Text style={[styles.messageText, styles.aiMessageText]}> </Text>;
-  }
+    const seq = Animated.stagger(120, animations);
+    seq.start(() => onAnimationComplete?.());
+  }, [words, animatedValues, onAnimationComplete]);
 
   return (
-    <Text style={styles.messageText}>
+    <View style={styles.inlineWords}>
       {words.map((word, index) => (
-        <Animated.Text
-          key={`${text}-${index}`} // Use text in key to force re-render on text change
-          style={[
-            styles.aiMessageText,
-            {
-              opacity: animatedValues[index],
-              transform: [
-                {
-                  translateY: animatedValues[index].interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [15, 0],
-                  }),
-                },
-                {
-                  scale: animatedValues[index].interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          {word}{index < words.length - 1 ? ' ' : ''}
-        </Animated.Text>
+        <React.Fragment key={`${text}-${index}`}>
+          <Animated.Text
+            style={[
+              styles.messageText,
+              styles.aiMessageText,
+              {
+                opacity: animatedValues[index],
+                transform: [
+                  {
+                    translateY: animatedValues[index].interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [8, 0],
+                    }),
+                  },
+                  {
+                    scale: animatedValues[index].interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.98, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {word}
+          </Animated.Text>
+          {index < words.length - 1 ? (
+            <Text style={[styles.messageText, styles.aiMessageText]}> </Text>
+          ) : null}
+        </React.Fragment>
       ))}
-    </Text>
+    </View>
   );
 });
 
@@ -121,6 +102,10 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
       flatListRef.current?.scrollToEnd({animated: true});
     }, 100);
   }, []);
+
+  const handleAIAnimationComplete = useCallback(() => {
+    scrollToBottom();
+  }, [scrollToBottom]);
 
   const sendMessage = useCallback(async () => {
     if (!inputText.trim() || loading) return;
@@ -176,18 +161,13 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
       item.isUser ? styles.userMessage : styles.aiMessage
     ]}>
       {item.isUser ? (
-        // Mensagem do usuário - texto normal
         <Text style={[styles.messageText, styles.userMessageText]}>
           {item.text}
         </Text>
       ) : (
-        // Mensagem da IA - com animação palavra por palavra
         <AnimatedText
           text={item.text}
-          onAnimationComplete={() => {
-            // Opcional: fazer algo quando a animação terminar
-            scrollToBottom();
-          }}
+          onAnimationComplete={handleAIAnimationComplete}
         />
       )}
       <Text style={[
@@ -197,7 +177,7 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
         {item.timestamp.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
       </Text>
     </View>
-  ), [scrollToBottom]);
+  ), [handleAIAnimationComplete]);
 
   const keyExtractor = useCallback((item: Message) => item.id, []);
 
@@ -222,7 +202,6 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
           keyExtractor={keyExtractor}
           style={styles.messagesList}
           contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
           onContentSizeChange={scrollToBottom}
         />
 
@@ -237,7 +216,6 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
             editable={!loading}
             onSubmitEditing={sendMessage}
             returnKeyType="send"
-            blurOnSubmit={false}
           />
           <TouchableOpacity
             style={[styles.sendButton, (!inputText.trim() || loading) && styles.sendButtonDisabled]}
@@ -322,6 +300,11 @@ const styles = StyleSheet.create({
   },
   aiMessageText: {
     color: '#333',
+  },
+  inlineWords: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
   },
   timestamp: {
     fontSize: 12,

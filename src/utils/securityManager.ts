@@ -261,6 +261,7 @@ export class SecurityManager {
     if (highSeverityIssues.length > 0) {
       const messages = highSeverityIssues.map(issue => issue.message).join('\n');
 
+      // eslint-disable-next-line no-unreachable
       return new Promise((resolve) => {
         Alert.alert(
           'Alerta de Segurança',

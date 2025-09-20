@@ -32,3 +32,16 @@ jest.mock('react-native-document-picker', () => {
     isCancel,
   };
 });
+
+// Mock react-native-device-info to avoid NativeEventEmitter issues in Jest
+jest.mock('react-native-device-info', () => {
+  return {
+    __esModule: true,
+    default: {
+      getUniqueId: jest.fn(() => Promise.resolve('test-device-id')),
+      getModel: jest.fn(() => 'TestModel'),
+      getSystemVersion: jest.fn(() => '1.0'),
+      isEmulator: jest.fn(() => Promise.resolve(false)),
+    },
+  };
+});
