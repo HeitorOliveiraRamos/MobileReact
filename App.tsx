@@ -1,12 +1,12 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {StyleSheet, Text, TouchableOpacity, Alert, AppState} from 'react-native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
-import LoginScreen from './src/screens/LoginScreen';
-import {getToken, clearToken as clearTokenStorage, setToken} from './src/storage/tokenStorage';
-import {setAuthToken, clearAuthToken, isTokenValid} from './src/api/client';
-import SendFileScreen from './src/screens/SendFileScreen';
-import ChatScreen from './src/screens/ChatScreen';
-import {SecurityManager} from './src/utils/securityManager';
+import LoginScreen from './src/components/screens/LoginScreen';
+import {getToken, clearToken as clearTokenStorage, setToken} from './src/services/storage/tokenStorage';
+import {setAuthToken, clearAuthToken, isTokenValid} from './src/services/api/client';
+import SendFileScreen from './src/components/screens/SendFileScreen';
+import ChatScreen from './src/components/screens/ChatScreen';
+import {SecurityManager} from './src/services/security/securityManager';
 
 type AppScreen = 'menu' | 'sendFile' | 'chat';
 

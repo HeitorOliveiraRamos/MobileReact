@@ -65,11 +65,10 @@ export const SecurityConfig = {
     // Allow HTTP in development
     allowHttp: true,
 
-    // Development API hosts for different platforms
+    // Development API hosts for Android-only
     hosts: {
-      android: 'http://10.0.2.2:8080', // Android emulator
-      ios: 'http://localhost:8080',     // iOS simulator
-      physical: 'http://192.168.1.100:8080', // Replace with your machine's IP
+      android: 'http://localhost:8080', // Android emulator
+      physical: 'http://localhost:8080', // Replace with your machine's IP for physical devices
     },
 
     // Debug logging
@@ -100,7 +99,7 @@ export const getEnvironmentConfig = () => {
       ...SecurityConfig,
       api: {
         ...SecurityConfig.api,
-        baseUrl: SecurityConfig.development.hosts.android, // Default for development
+        baseUrl: SecurityConfig.development.hosts.android, // Default for development (Android)
       },
     };
   }

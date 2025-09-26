@@ -1,8 +1,9 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Animated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import DocumentPicker, {types as DocTypes, isCancel} from 'react-native-document-picker';
-import {api} from '../api/client';
+import {api} from '../../services/api/client';
+import DocumentPicker, { types as DocTypes } from '@react-native-documents/picker';
+import {isCancel} from "axios";
 
 type Props = {
   onBack: () => void;
@@ -55,7 +56,7 @@ export default function SendFileScreen({onBack, onNavigateToChat}: Props) {
       });
 
       if (result && result.length > 0) {
-        const pickedFile = result[0];
+        const pickedFile: any = result[0];
         setFile({
           uri: pickedFile.uri,
           name: pickedFile.name || 'arquivo',
@@ -85,6 +86,8 @@ export default function SendFileScreen({onBack, onNavigateToChat}: Props) {
       // Enviar os campos no formato esperado pela API
       formData.append('file_name', file.name);
       formData.append('file_type', file.type);
+
+      // Android (React Native)
       formData.append('file_data', {
         uri: file.uri,
         type: file.type,
@@ -109,10 +112,12 @@ export default function SendFileScreen({onBack, onNavigateToChat}: Props) {
         }
       });
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'multipart/form-data',
+      };
+
       const response = await api.post('/usuario/files', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers,
         timeout: 60000, // 60 seconds for file upload
       });
 

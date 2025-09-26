@@ -1,8 +1,8 @@
 import React, {useCallback, useState} from 'react';
 import {ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {login} from '../api/auth';
-import {setToken as persistToken} from '../storage/tokenStorage';
+import {login} from '../../services/api/auth';
+import {setToken as persistToken} from '../../services/storage/tokenStorage';
 
 type Props = {
   onSuccess: (token: string) => void;

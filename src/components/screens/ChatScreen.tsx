@@ -1,7 +1,7 @@
+import {ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {api} from '../api/client';
+import {api} from '../../services/api/client';
 
 type Props = {
   onBack: () => void;
@@ -44,31 +44,29 @@ const AnimatedText = React.memo(({text, onAnimationComplete}: {text: string; onA
     <View style={styles.inlineWords}>
       {words.map((word, index) => (
         <React.Fragment key={`${text}-${index}`}>
-          <Animated.Text
-            style={[
-              styles.messageText,
-              styles.aiMessageText,
-              {
-                opacity: animatedValues[index],
-                transform: [
-                  {
-                    translateY: animatedValues[index].interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [8, 0],
-                    }),
-                  },
-                  {
-                    scale: animatedValues[index].interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.98, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
+          <Animated.View
+            style={{
+              opacity: animatedValues[index],
+              transform: [
+                {
+                  translateY: animatedValues[index].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [8, 0],
+                  }),
+                },
+                {
+                  scale: animatedValues[index].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.98, 1],
+                  }),
+                },
+              ],
+            }}
           >
-            {word}
-          </Animated.Text>
+            <Text style={[styles.messageText, styles.aiMessageText]}>
+              {word}
+            </Text>
+          </Animated.View>
           {index < words.length - 1 ? (
             <Text style={[styles.messageText, styles.aiMessageText]}> </Text>
           ) : null}
@@ -192,8 +190,8 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
 
       <KeyboardAvoidingView
         style={styles.content}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior={'height'}
+        keyboardVerticalOffset={20}
       >
         <FlatList
           ref={flatListRef}

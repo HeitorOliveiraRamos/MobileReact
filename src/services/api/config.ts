@@ -3,11 +3,11 @@ import {Platform} from 'react-native';
 const PRODUCTION_API_URL = 'https://your-api-domain.com/api';
 
 const getDevelopmentHost = () => {
+  // Android-only development host (emulator). For physical devices, replace with your machine's IP.
   return Platform.select({
-      android: 'http://localhost:8080', // Android emulator
-      ios: 'http://localhost:8080',     // iOS simulator
+      android: 'http://localhost:8080',
       default: 'http://localhost:8080',
-  });
+  }) as string;
 };
 
 export const API_BASE_URL = __DEV__

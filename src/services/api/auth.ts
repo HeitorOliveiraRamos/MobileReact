@@ -11,4 +11,3 @@ export async function login(usuario: string, senha: string): Promise<string> {
   }
   return data.token;
 }
-

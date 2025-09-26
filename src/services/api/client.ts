@@ -39,7 +39,6 @@ export const api = axios.create({
   timeout: API_TIMEOUT.DEFAULT,
   headers: {
     'Accept': 'application/json',
-    'Content-Type': 'application/json',
     ...getSecureHeaders(),
   },
 });
@@ -61,9 +60,14 @@ api.interceptors.request.use(
       ...getSecureHeaders(),
     } as any;
 
-    // Ensure JSON content type unless explicitly overridden
-    if (!config.headers || !(config.headers as any)['Content-Type']) {
-      (config.headers as any)['Content-Type'] = 'application/json';
+    // Ensure Content-Type only when not sending FormData
+    const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData;
+    if (!isFormData) {
+      const headers = (config.headers || {}) as any;
+      if (!headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
+      config.headers = headers;
     }
 
     return config;
