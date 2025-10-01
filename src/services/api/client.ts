@@ -50,13 +50,13 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       clearAuthToken();
-      console.warn('Authentication failed - token may be expired');
+      console.warn('Falha na autenticação - token pode ter expirado');
     }
     if (!error.response) {
-      console.error('Network error - check your connection');
+      console.error('Erro de rede - verifique sua conexão');
     }
     if (error.response?.status && error.response.status >= 500) {
-      console.error('Server error - please try again later');
+      console.error('Erro do servidor - tente novamente mais tarde');
     }
     return Promise.reject(error);
   }

@@ -6,7 +6,7 @@ export async function setToken(token: string): Promise<void> {
   try {
     await AsyncStorage.setItem(TOKEN_KEY, token);
   } catch (error) {
-    console.error('Failed to store auth token:', error);
+    console.error('Falha ao armazenar token:', error);
     throw error;
   }
 }
@@ -15,7 +15,7 @@ export async function clearToken(): Promise<void> {
   try {
     await AsyncStorage.removeItem(TOKEN_KEY);
   } catch (error) {
-    console.error('Failed to clear auth token:', error);
+    console.error('Falha ao limpar token:', error);
     throw error;
   }
 }

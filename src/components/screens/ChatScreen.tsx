@@ -128,7 +128,7 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
       };
       setMessages(prev => [...prev, errorMessage]);
       if (__DEV__) {
-        console.error('Chat error:', error);
+        console.error('Erro no chat:', error);
       }
     } finally {
       setLoading(false);

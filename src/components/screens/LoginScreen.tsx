@@ -28,7 +28,7 @@ export default function LoginScreen({onSuccess}: Props) {
       const message = e?.response?.data?.message || e?.message || 'Falha no login. Verifique suas credenciais.';
       setError(message);
       if (__DEV__) {
-        console.warn('Login error:', message);
+        console.warn('Erro de login:', message);
       }
       Alert.alert('Erro', message);
     } finally {
