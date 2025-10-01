@@ -83,11 +83,9 @@ export default function SendFileScreen({onBack, onNavigateToChat}: Props) {
     try {
       const formData = new FormData();
 
-      // Enviar os campos no formato esperado pela API
       formData.append('file_name', file.name);
       formData.append('file_type', file.type);
 
-      // Android (React Native)
       formData.append('file_data', {
         uri: file.uri,
         type: file.type,
@@ -98,63 +96,28 @@ export default function SendFileScreen({onBack, onNavigateToChat}: Props) {
         formData.append('observation', observation.trim());
       }
 
-      console.log('📤 Iniciando upload do arquivo:', {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-        hasObservation: !!observation.trim(),
-        endpoint: '/usuario/files',
-        formDataFields: {
-          file_name: file.name,
-          file_type: file.type,
-          file_data: 'MultipartFile',
-          observation: observation.trim() || 'N/A'
-        }
-      });
-
       const headers: Record<string, string> = {
         'Content-Type': 'multipart/form-data',
       };
 
       const response = await api.post('/usuario/files', formData, {
         headers,
-        timeout: 60000, // 60 seconds for file upload
-      });
-
-      console.log('✅ Upload realizado com sucesso:', {
-        status: response.status,
-        data: response.data
+        timeout: 60000,
       });
 
       setSuccess(response.data);
       setFile(null);
       setObservation('');
 
-      // Navegar para o chat com o ai_overview como mensagem inicial
       if (response.data.ai_overview) {
         setNavigatingToChat(true);
         setTimeout(() => {
           onNavigateToChat(response.data.ai_overview);
-        }, 1500); // Aguarda 1.5s para mostrar o sucesso antes de navegar
+        }, 1500);
       }
     } catch (error: any) {
-      console.error('❌ Erro no upload do arquivo:', {
-        status: error?.response?.status,
-        statusText: error?.response?.statusText,
-        errorMessage: error?.message,
-        errorCode: error?.code,
-        responseData: error?.response?.data,
-        requestUrl: error?.config?.url,
-        requestMethod: error?.config?.method,
-        isNetworkError: !error?.response,
-        fullError: error
-      });
-
-      // Tratamento específico por tipo de erro
       if (error?.response?.status === 400) {
-        console.warn('⚠️ Erro de validação (400) - Campos obrigatórios ou formato incorreto');
         if (error?.response?.data?.errors) {
-          console.warn('📋 Erros de validação detalhados:', error.response.data.errors);
           setErrors(error.response.data.errors);
         } else {
           Alert.alert(
@@ -163,40 +126,31 @@ export default function SendFileScreen({onBack, onNavigateToChat}: Props) {
           );
         }
       } else if (error?.response?.status === 404) {
-        console.warn('🔍 Endpoint não encontrado - Verificar se a API está rodando e o endpoint está correto');
         Alert.alert(
           'Recurso não encontrado',
           'O endpoint de upload não foi encontrado. Verifique se a API está rodando corretamente.\n\nEndpoint esperado: /api/usuario/files'
         );
       } else if (error?.response?.status === 401) {
-        console.warn('🔒 Erro de autenticação - Token pode ter expirado');
         Alert.alert('Erro de Autenticação', 'Sua sessão expirou. Faça login novamente.');
       } else if (error?.response?.status === 403) {
-        console.warn('🚫 Acesso negado - Usuário não tem permissão');
         Alert.alert('Acesso Negado', 'Você não tem permissão para fazer upload de arquivos.');
       } else if (error?.response?.status === 413) {
-        console.warn('📁 Arquivo muito grande');
         Alert.alert('Arquivo muito grande', 'O arquivo selecionado excede o tamanho máximo permitido.');
       } else if (error?.response?.status === 415) {
-        console.warn('📎 Tipo de arquivo não suportado');
         Alert.alert('Tipo não suportado', 'O tipo do arquivo selecionado não é suportado.');
       } else if (error?.response?.status >= 500) {
-        console.error('🔥 Erro interno do servidor');
         Alert.alert('Erro do Servidor', 'Ocorreu um erro interno no servidor. Tente novamente mais tarde.');
       } else if (!error?.response) {
-        console.error('🌐 Erro de rede - Sem resposta do servidor');
         Alert.alert(
           'Erro de Conexão',
           'Não foi possível conectar ao servidor. Verifique sua conexão com a internet e se a API está rodando.\n\nURL esperada: http://localhost:8080/api/usuario/files'
         );
       } else {
         const message = error?.response?.data?.message || error?.message || 'Erro desconhecido no upload do arquivo';
-        console.error('❓ Erro não categorizado:', message);
         Alert.alert('Erro', message);
       }
     } finally {
       setLoading(false);
-      console.log('🏁 Upload finalizado');
     }
   }, [canSubmit, file, observation, onNavigateToChat]);
 
@@ -401,56 +355,34 @@ const styles = StyleSheet.create({
   },
   successText: {
     fontSize: 14,
-    color: '#388e3c',
-    marginBottom: 8,
+    color: '#2e7d32',
   },
   navigatingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e8f0fe',
-    borderWidth: 1,
-    borderColor: '#1e88e5',
-    borderRadius: 8,
     padding: 16,
   },
   loadingIcon: {
     marginRight: 8,
   },
   navigatingTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1e88e5',
-  },
-  aiOverviewContainer: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#4caf50',
-  },
-  aiOverviewTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2e7d32',
-    marginBottom: 4,
-  },
-  aiOverviewText: {
-    fontSize: 14,
-    color: '#388e3c',
-    lineHeight: 20,
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: 'bold',
   },
   submitButton: {
     backgroundColor: '#007AFF',
-    paddingVertical: 16,
     borderRadius: 8,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginVertical: 20,
+    marginTop: 24,
   },
   submitButtonDisabled: {
     backgroundColor: '#ccc',
   },
   submitButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });

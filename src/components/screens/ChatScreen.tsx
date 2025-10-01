@@ -16,18 +16,11 @@ type Message = {
   isAnimating?: boolean;
 };
 
-// Componente para animação de texto palavra por palavra
 const AnimatedText = React.memo(({text, onAnimationComplete}: {text: string; onAnimationComplete?: () => void}) => {
-  // Palavras derivadas do texto (remove espaços extras)
   const words = useMemo(() => text.split(/\s+/).filter(Boolean), [text]);
-
-  // Valores animados por palavra (recriados quando o texto muda)
   const animatedValues = useMemo(() => words.map(() => new Animated.Value(0)), [words]);
-
-  // Rodar animação em cascata quando o texto mudar
   useEffect(() => {
     animatedValues.forEach(v => v.setValue(0));
-
     const animations = words.map((_, i) =>
       Animated.timing(animatedValues[i], {
         toValue: 1,
@@ -35,11 +28,9 @@ const AnimatedText = React.memo(({text, onAnimationComplete}: {text: string; onA
         useNativeDriver: true,
       })
     );
-
     const seq = Animated.stagger(120, animations);
     seq.start(() => onAnimationComplete?.());
   }, [words, animatedValues, onAnimationComplete]);
-
   return (
     <View style={styles.inlineWords}>
       {words.map((word, index) => (
@@ -83,7 +74,6 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    // Add welcome message
     setMessages(prevMessages => [
       {
         id: 'welcome',
@@ -107,31 +97,26 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
 
   const sendMessage = useCallback(async () => {
     if (!inputText.trim() || loading) return;
-
     const userMessage: Message = {
       id: Date.now().toString(),
       text: inputText.trim(),
       isUser: true,
       timestamp: new Date(),
     };
-
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setLoading(true);
     scrollToBottom();
-
     try {
       const response = await api.post('/chat/message', {
         message: userMessage.text,
       });
-
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: response.data.response || 'Desculpe, não consegui processar sua mensagem.',
         isUser: false,
         timestamp: new Date(),
       };
-
       setMessages(prev => [...prev, aiMessage]);
       scrollToBottom();
     } catch (error: any) {
@@ -141,9 +126,7 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
         isUser: false,
         timestamp: new Date(),
       };
-
       setMessages(prev => [...prev, errorMessage]);
-
       if (__DEV__) {
         console.error('Chat error:', error);
       }
@@ -187,7 +170,6 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
         </TouchableOpacity>
         <Text style={styles.title}>Chat IA</Text>
       </View>
-
       <KeyboardAvoidingView
         style={styles.content}
         behavior={'height'}
@@ -202,7 +184,6 @@ export default function ChatScreen({onBack, initialMessage}: Props) {
           contentContainerStyle={styles.messagesContent}
           onContentSizeChange={scrollToBottom}
         />
-
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.textInput}
