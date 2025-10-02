@@ -180,7 +180,6 @@ function App() {
                         {screen === 'menu' && (
                             <View style={styles.brandContainer}>
                                 <Image source={iconSource} style={styles.brandImage} resizeMode="contain"/>
-                                <Text style={styles.brandTagline}>Transformando Arquivos em Insight</Text>
                             </View>
                         )}
                         {screen === 'sendFile' && (
