@@ -2,15 +2,16 @@ import {
     ActivityIndicator,
     Animated,
     FlatList,
-    KeyboardAvoidingView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    Keyboard,
+    Platform
 } from 'react-native';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {api} from '../../services/api/client';
 
 type Props = { initialMessage?: string };
@@ -44,8 +45,9 @@ const AnimatedText = React.memo(({text, onAnimationComplete}: { text: string; on
                     }}>
                         <Text style={[styles.messageText, styles.aiMessageText]}>{word}</Text>
                     </Animated.View>
-                    {index < words.length - 1 ? (
-                        <Text style={[styles.messageText, styles.aiMessageText]}> </Text>) : null}
+                    {index < words.length - 1 && (
+                        <Text style={[styles.messageText, styles.aiMessageText]}> </Text>
+                    )}
                 </React.Fragment>
             ))}
         </View>
@@ -53,18 +55,21 @@ const AnimatedText = React.memo(({text, onAnimationComplete}: { text: string; on
 });
 
 export default function ChatScreen({initialMessage}: Props) {
+    const insets = useSafeAreaInsets();
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
-        setMessages(prev => [{
-            id: 'welcome',
+        const welcomeMessage: Message = {
+            id: 'welcome-' + Date.now(),
             text: initialMessage || 'Olá! Como posso ajudá-lo hoje?',
             isUser: false,
             timestamp: new Date()
-        }, ...prev]);
+        };
+        setMessages([welcomeMessage]);
     }, [initialMessage]);
 
     const scrollToBottom = useCallback(() => {
@@ -125,30 +130,61 @@ export default function ChatScreen({initialMessage}: Props) {
 
     const keyExtractor = useCallback((item: Message) => item.id, []);
 
+    useEffect(() => {
+        const showEvt = Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow';
+        const hideEvt = Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide';
+        const showSub = Keyboard.addListener(showEvt, (e:any) => {
+            setKeyboardHeight(e.endCoordinates?.height || 0);
+            scrollToBottom();
+        });
+        const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardHeight(0));
+        return () => { showSub.remove(); hideSub.remove(); };
+    }, [scrollToBottom]);
+
     return (
-        <SafeAreaView style={styles.container}>
-            <KeyboardAvoidingView style={styles.content} behavior={'height'} keyboardVerticalOffset={20}>
-                <FlatList ref={flatListRef} data={messages} renderItem={renderMessage} keyExtractor={keyExtractor}
-                          style={styles.messagesList} contentContainerStyle={styles.messagesContent}
-                          onContentSizeChange={scrollToBottom}/>
-                <View style={styles.inputContainer}>
-                    <TextInput style={styles.textInput} placeholder="Digite sua mensagem..." value={inputText}
-                               onChangeText={setInputText} multiline maxLength={500} editable={!loading}
-                               onSubmitEditing={sendMessage} returnKeyType="send"/>
-                    <TouchableOpacity
-                        style={[styles.sendButton, (!inputText.trim() || loading) && styles.sendButtonDisabled]}
-                        onPress={sendMessage} disabled={!inputText.trim() || loading} activeOpacity={0.8}>
-                        {loading ? (<ActivityIndicator color="white" size="small"/>) : (
-                            <Text style={styles.sendButtonText}>Enviar</Text>)}
-                    </TouchableOpacity>
-                </View>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+        <View style={[styles.container, {paddingBottom: keyboardHeight > 0 ? keyboardHeight : Math.max(insets.bottom, 8)}]}>
+            <FlatList
+                ref={flatListRef}
+                data={messages}
+                renderItem={renderMessage}
+                keyExtractor={keyExtractor}
+                style={styles.messagesList}
+                contentContainerStyle={styles.messagesContent}
+                onContentSizeChange={scrollToBottom}
+                keyboardShouldPersistTaps="handled"
+            />
+            <View style={[styles.inputContainer, {marginBottom: keyboardHeight > 0 ? 0 : 0}]}>
+                <TextInput
+                    style={styles.textInput}
+                    placeholder="Digite sua mensagem..."
+                    placeholderTextColor="#555"
+                    value={inputText}
+                    onChangeText={setInputText}
+                    multiline
+                    maxLength={500}
+                    editable={!loading}
+                    onSubmitEditing={sendMessage}
+                    returnKeyType="send"
+                />
+                <TouchableOpacity
+                    style={[styles.sendButton, (!inputText.trim() || loading) && styles.sendButtonDisabled]}
+                    onPress={sendMessage}
+                    disabled={!inputText.trim() || loading}
+                    activeOpacity={0.8}
+                >
+                    {loading ? (
+                        <ActivityIndicator color="white" size="small" />
+                    ) : (
+                        <Text style={styles.sendButtonText}>Enviar</Text>
+                    )}
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {flex: 1, backgroundColor: '#f0f0f0', paddingTop: 8},
+    container: {flex: 1, backgroundColor: '#ffffff'},
     content: {flex: 1},
     messagesList: {flex: 1, paddingHorizontal: 16},
     messagesContent: {paddingVertical: 16},
@@ -178,7 +214,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: '#fff',
+        backgroundColor: '#ffffff',
         borderTopWidth: 1,
         borderTopColor: '#ddd',
         alignItems: 'flex-end'
@@ -192,7 +228,8 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         fontSize: 16,
         maxHeight: 100,
-        backgroundColor: '#f8f8f8'
+        backgroundColor: '#f8f8f8',
+        color: '#111'
     },
     sendButton: {
         backgroundColor: '#007AFF',

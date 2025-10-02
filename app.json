@@ -1,4 +1,35 @@
 {
   "name": "TecnoTooling",
-  "displayName": "TecnoTooling"
+  "displayName": "TecnoTooling",
+  "expo": {
+    "name": "TecnoTooling",
+    "slug": "tecno-tooling",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./src/assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f5f6fa"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/icon.png",
+        "backgroundColor": "#f5f6fa"
+      },
+      "statusBarBackgroundColor": "#f5f6fa",
+      "navigationBarBackgroundColor": "#f5f6fa",
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "web": {
+      "favicon": "./src/assets/icon.png"
+    }
+  }
 }

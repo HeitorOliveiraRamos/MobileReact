@@ -32,9 +32,11 @@ export default function LoginScreen({onSuccess}: Props) {
     return (
         <SafeAreaView style={styles.container}>
             <Text style={styles.title}>Entrar</Text>
-            <TextInput placeholder="Usuário" placeholderTextColor="#666" autoCapitalize="none" autoCorrect={false} keyboardType="default"
+            <TextInput placeholder="Usuário" placeholderTextColor="#666" autoCapitalize="none" autoCorrect={false}
+                       keyboardType="default"
                        value={usuario} onChangeText={setUsuario} style={styles.input} editable={!loading}/>
-            <TextInput placeholder="Senha" placeholderTextColor="#666" secureTextEntry autoCapitalize="none" autoCorrect={false} value={senha}
+            <TextInput placeholder="Senha" placeholderTextColor="#666" secureTextEntry autoCapitalize="none"
+                       autoCorrect={false} value={senha}
                        onChangeText={setSenha} style={styles.input} editable={!loading} onSubmitEditing={handleSubmit}
                        returnKeyType="done"/>
             {error && <Text style={styles.errorText}>{error}</Text>}

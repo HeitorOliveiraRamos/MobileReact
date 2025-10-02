@@ -1,17 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
-} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {ActivityIndicator, Alert, Animated, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {api} from '../../services/api/client';
 import {API_BASE_URL} from '../../services/api/config';
 import {errorCodes, isErrorWithCode, pick as pickDocument, types as DocTypes} from '@react-native-documents/picker';
@@ -30,6 +19,7 @@ type UploadSuccess = {
 };
 
 export default function SendFileScreen({onNavigateToChat}: Props) {
+    const insets = useSafeAreaInsets();
     const [file, setFile] = useState<{ uri: string; name: string; type: string; size?: number | null } | null>(null);
     const [observation, setObservation] = useState('');
     const [loading, setLoading] = useState(false);
@@ -186,56 +176,101 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
         return false;
     }, []);
 
-    return (<SafeAreaView style={styles.container}>
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Selecionar Arquivo</Text>
-                <TouchableOpacity style={[styles.filePicker, file && styles.filePickerSelected]}
-                                  onPress={handlePickFile} disabled={loading}>
-                    <Text
-                        style={[styles.filePickerText, file && styles.filePickerTextSelected]}>{file ? file.name : 'Toque para selecionar arquivo'}</Text>
-                    {file && file.size && (<Text style={styles.fileSizeText}>{formatFileSize(file.size)}</Text>)}
+    return (
+        <View style={[styles.container, {paddingBottom: Math.max(insets.bottom, 12)}]}>
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Selecionar Arquivo</Text>
+                    <TouchableOpacity
+                        style={[styles.filePicker, file && styles.filePickerSelected]}
+                        onPress={handlePickFile}
+                        disabled={loading}
+                    >
+                        <Text style={[styles.filePickerText, file && styles.filePickerTextSelected]}>
+                            {file ? file.name : 'Toque para selecionar arquivo'}
+                        </Text>
+                        {file && file.size && (
+                            <Text style={styles.fileSizeText}>{formatFileSize(file.size)}</Text>
+                        )}
+                    </TouchableOpacity>
+                    {getErrorForField('file') && (
+                        <Text style={styles.errorText}>{getErrorForField('file')}</Text>
+                    )}
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Observações (Opcional)</Text>
+                    <TextInput
+                        style={[styles.textArea, getErrorForField('observation') && styles.inputError]}
+                        placeholder="Adicione observações sobre o arquivo..." multiline numberOfLines={4}
+                        value={observation} onChangeText={setObservation} editable={!loading}
+                        textAlignVertical="top"
+                    />
+                    {getErrorForField('observation') && (
+                        <Text style={styles.errorText}>{getErrorForField('observation')}</Text>
+                    )}
+                </View>
+
+                {(errors || success || connectivityStatus) && (
+                    <Animated.View style={[styles.messageContainer, {opacity: animatedValue}]}>
+                        {connectivityStatus && (
+                            <View style={[styles.successContainer, {backgroundColor: '#eef4ff', borderColor: '#4a6ee0'}]}>
+                                <Text style={[styles.successTitle, {color: '#2c4fb8'}]}>
+                                    Conectividade: {connectivityStatus}
+                                </Text>
+                            </View>
+                        )}
+
+                        {success && !navigatingToChat && (
+                            <View style={styles.successContainer}>
+                                <Text style={styles.successTitle}>✅ Upload realizado com sucesso!</Text>
+                                <Text style={styles.successText}>ID: {success.id_file}</Text>
+                                {success.file_name && (
+                                    <Text style={styles.successText}>Nome: {success.file_name}</Text>
+                                )}
+                                {success.file_type && (
+                                    <Text style={styles.successText}>Tipo: {success.file_type}</Text>
+                                )}
+                                {typeof success.size_bytes === 'number' && (
+                                    <Text style={styles.successText}>Tamanho: {formatFileSize(success.size_bytes)}</Text>
+                                )}
+                                {success.observation && (
+                                    <Text style={styles.successText}>Obs: {success.observation}</Text>
+                                )}
+                                {success.ai_overview && (
+                                    <Text style={styles.successText}>AI: {success.ai_overview}</Text>
+                                )}
+                            </View>
+                        )}
+
+                        {navigatingToChat && (
+                            <View style={styles.navigatingContainer}>
+                                <ActivityIndicator color="#007AFF" size="small" style={styles.loadingIcon}/>
+                                <Text style={styles.navigatingTitle}>Sucesso! Iniciando sala de conversação...</Text>
+                            </View>
+                        )}
+                    </Animated.View>
+                )}
+
+                <TouchableOpacity
+                    style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
+                    onPress={handleSubmit}
+                    disabled={!canSubmit}
+                    activeOpacity={0.8}
+                >
+                    {loading ? (
+                        <ActivityIndicator color="white"/>
+                    ) : (
+                        <Text style={styles.submitButtonText}>Enviar Arquivo</Text>
+                    )}
                 </TouchableOpacity>
-                {getErrorForField('file') && (<Text style={styles.errorText}>{getErrorForField('file')}</Text>)}
-            </View>
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Observações (Opcional)</Text>
-                <TextInput style={[styles.textArea, getErrorForField('observation') && styles.inputError]}
-                           placeholder="Adicione observações sobre o arquivo..." multiline numberOfLines={4}
-                           value={observation} onChangeText={setObservation} editable={!loading}
-                           textAlignVertical="top"/>
-                {getErrorForField('observation') && (
-                    <Text style={styles.errorText}>{getErrorForField('observation')}</Text>)}
-            </View>
-            {(errors || success || connectivityStatus) && (
-                <Animated.View style={[styles.messageContainer, {opacity: animatedValue}]}> {connectivityStatus && (
-                    <View style={[styles.successContainer, {backgroundColor: '#eef4ff', borderColor: '#4a6ee0'}]}><Text
-                        style={[styles.successTitle, {color: '#2c4fb8'}]}>Conectividade: {connectivityStatus}</Text></View>)} {success && !navigatingToChat && (
-                    <View style={styles.successContainer}><Text style={styles.successTitle}>✅ Upload realizado com
-                        sucesso!</Text><Text
-                        style={styles.successText}>ID: {success.id_file}</Text>{success.file_name &&
-                        <Text style={styles.successText}>Nome: {success.file_name}</Text>}{success.file_type && <Text
-                        style={styles.successText}>Tipo: {success.file_type}</Text>}{typeof success.size_bytes === 'number' &&
-                        <Text
-                            style={styles.successText}>Tamanho: {formatFileSize(success.size_bytes)}</Text>}{success.observation &&
-                        <Text style={styles.successText}>Obs: {success.observation}</Text>}{!!success.ai_overview &&
-                        <Text style={styles.successText}>AI: {success.ai_overview}</Text>}
-                    </View>)} {navigatingToChat && (
-                    <View style={styles.navigatingContainer}><ActivityIndicator color="#007AFF" size="small"
-                                                                                style={styles.loadingIcon}/><Text
-                        style={styles.navigatingTitle}>Sucesso! Iniciando sala de
-                        conversação...</Text></View>)} </Animated.View>)}
-            <TouchableOpacity style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
-                              onPress={handleSubmit} disabled={!canSubmit} activeOpacity={0.8}>
-                {loading ? (<ActivityIndicator color="white"/>) : (
-                    <Text style={styles.submitButtonText}>Enviar Arquivo</Text>)}
-            </TouchableOpacity>
-        </ScrollView>
-    </SafeAreaView>);
+            </ScrollView>
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-    container: {flex: 1, backgroundColor: '#f0f0f0'},
+    container: {flex: 1},
     content: {flex: 1, paddingHorizontal: 16, paddingTop: 12},
     section: {marginVertical: 16},
     sectionTitle: {fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8},
