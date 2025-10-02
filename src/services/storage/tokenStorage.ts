@@ -25,6 +25,6 @@ export async function getToken(): Promise<string | null> {
         return await AsyncStorage.getItem(TOKEN_KEY);
     } catch (error) {
         console.error('Falha ao obter token:', error);
-        return null; // retorna null para não quebrar fluxo
+        return null;
     }
 }

@@ -1,5 +1,5 @@
-import React, {useCallback, useEffect, useState} from 'react';
-import {Alert, AppState, StyleSheet, Text, TouchableOpacity} from 'react-native';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {Alert, AppState, StyleSheet, Text, TouchableOpacity, View, Image, Animated, Easing} from 'react-native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import LoginScreen from './src/components/screens/LoginScreen';
 import {clearToken as clearTokenStorage, getToken, setToken} from './src/services/storage/tokenStorage';
@@ -9,11 +9,28 @@ import {clearAuthToken, isTokenValid, setAuthToken} from './src/services/api/cli
 
 type AppScreen = 'menu' | 'sendFile' | 'chat';
 
+const SIDEBAR_OPEN_WIDTH = 220;
+const SIDEBAR_CLOSED_WIDTH = 60;
+
 function App() {
     const [token, setTokenState] = useState<string | null>(null);
     const [hydrated, setHydrated] = useState(false);
     const [screen, setScreen] = useState<AppScreen>('menu');
     const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const sidebarWidth = useRef(new Animated.Value(SIDEBAR_OPEN_WIDTH)).current;
+
+    const toggleSidebar = useCallback(() => {
+        const next = !sidebarOpen;
+        setSidebarOpen(next);
+        Animated.timing(sidebarWidth, {
+            toValue: next ? SIDEBAR_OPEN_WIDTH : SIDEBAR_CLOSED_WIDTH,
+            duration: 220,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: false
+        }).start();
+    }, [sidebarOpen, sidebarWidth]);
+
     const handleLogout = useCallback(async () => {
         try {
             await clearTokenStorage();
@@ -46,7 +63,6 @@ function App() {
                 setHydrated(true);
             }
         };
-
         initializeApp();
     }, []);
 
@@ -59,7 +75,6 @@ function App() {
                 }
             }
         };
-
         const subscription = AppState.addEventListener('change', handleAppStateChange);
         return () => subscription?.remove();
     }, [token, handleLogout]);
@@ -70,7 +85,6 @@ function App() {
                 Alert.alert('Erro', 'Token inválido recebido');
                 return;
             }
-
             await setToken(newToken);
             setTokenState(newToken);
             setAuthToken(newToken);
@@ -82,96 +96,139 @@ function App() {
     }, []);
 
     const confirmLogout = useCallback(() => {
-        Alert.alert('Confirmar Logout', 'Tem certeza que deseja sair?', [{
-            text: 'Cancelar',
-            style: 'cancel'
-        }, {text: 'Sair', style: 'destructive', onPress: handleLogout},]);
+        Alert.alert('Confirmar Logout', 'Tem certeza que deseja sair?', [
+            {text: 'Cancelar', style: 'cancel'},
+            {text: 'Sair', style: 'destructive', onPress: handleLogout},
+        ]);
     }, [handleLogout]);
 
     if (!hydrated) {
-        return (<SafeAreaProvider>
+        return (
+            <SafeAreaProvider>
                 <SafeAreaView style={styles.centeredContainer}>
-                    <Text style={styles.title}>Carregando…</Text>
-                    <Text style={styles.subtitle}>Verificando segurança</Text>
+                    <Text style={styles.loadingTitle}>Carregando…</Text>
+                    <Text style={styles.loadingSubtitle}>Verificando segurança</Text>
                 </SafeAreaView>
-            </SafeAreaProvider>);
+            </SafeAreaProvider>
+        );
     }
 
     if (!token) {
-        return (<SafeAreaProvider>
+        return (
+            <SafeAreaProvider>
                 <SafeAreaView style={styles.fullContainer}>
                     <LoginScreen onSuccess={handleLoggedIn}/>
                 </SafeAreaView>
-            </SafeAreaProvider>);
+            </SafeAreaProvider>
+        );
     }
 
-    return (<SafeAreaProvider>
-            {screen === 'menu' && (<SafeAreaView style={styles.container}>
-                    <Text style={styles.title}>Menu</Text>
-                    <Text style={styles.subtitle}>Escolha uma opção</Text>
+    const arrowIcon = sidebarOpen ? '‹' : '›';
+    const iconSource = require('./src/assets/icon.png');
+    const headerTitle = screen === 'menu' ? 'Tecno Tooling' : screen === 'sendFile' ? 'Enviar Arquivo' : 'Chat IA';
 
-                    <TouchableOpacity
-                        style={styles.button}
-                        onPress={() => setScreen('sendFile')}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.buttonText}>Enviar Arquivo</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.button, styles.menuButtonSpacing]}
-                        onPress={() => setScreen('chat')}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.buttonText}>Chat</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.outlineButton, styles.logoutButtonSpacing]}
-                        onPress={confirmLogout}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.outlineButtonText}>Sair</Text>
-                    </TouchableOpacity>
-                </SafeAreaView>)}
-
-            {screen === 'sendFile' && (<SendFileScreen
-                    onBack={() => setScreen('menu')}
-                    onNavigateToChat={(initialMessage) => {
-                        setScreen('chat');
-                        setChatInitialMessage(initialMessage);
-                    }}
-                />)}
-            {screen === 'chat' && (<ChatScreen
-                    onBack={() => {
-                        setScreen('menu');
-                        setChatInitialMessage(undefined);
-                    }}
-                    initialMessage={chatInitialMessage}
-                />)}
-        </SafeAreaProvider>);
+    return (
+        <SafeAreaProvider>
+            <SafeAreaView style={styles.appRoot}>
+                <Animated.View style={[styles.sidebar, {width: sidebarWidth}]}>
+                    <View style={styles.sidebarHeader}>
+                        {sidebarOpen && <Text style={styles.sidebarTitle}>Menu</Text>}
+                        <TouchableOpacity style={styles.toggleButton} onPress={toggleSidebar} activeOpacity={0.7}>
+                            <Text style={styles.toggleIcon}>{arrowIcon}</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.sidebarContent}>
+                        <TouchableOpacity
+                            onPress={() => setScreen('sendFile')}
+                            style={[styles.navItem, screen === 'sendFile' && styles.navItemActive]}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.navItemText, screen === 'sendFile' && styles.navItemTextActive]}>
+                                {sidebarOpen ? 'Enviar Arquivo' : '📤'}
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => setScreen('chat')}
+                            style={[styles.navItem, screen === 'chat' && styles.navItemActive]}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.navItemText, screen === 'chat' && styles.navItemTextActive]}>
+                                {sidebarOpen ? 'Chat' : '💬'}
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => setScreen('menu')}
+                            style={[styles.navItem, screen === 'menu' && styles.navItemActive]}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.navItemText, screen === 'menu' && styles.navItemTextActive]}>
+                                {sidebarOpen ? 'Início' : '🏠'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.sidebarFooter}>
+                        <TouchableOpacity onPress={confirmLogout} style={styles.logoutBtn} activeOpacity={0.8}>
+                            <Text style={styles.logoutText}>{sidebarOpen ? 'Sair' : '⎋'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </Animated.View>
+                <View style={styles.mainArea}>
+                    <View style={styles.header}>
+                        <Text style={styles.appName}>{headerTitle}</Text>
+                    </View>
+                    <View style={styles.mainContentWrapper}>
+                        {screen === 'menu' && (
+                            <View style={styles.brandContainer}>
+                                <Image source={iconSource} style={styles.brandImage} resizeMode="contain"/>
+                                <Text style={styles.brandTagline}>Transformando Arquivos em Insight</Text>
+                            </View>
+                        )}
+                        {screen === 'sendFile' && (
+                            <SendFileScreen
+                                onNavigateToChat={(initialMessage) => {
+                                    setScreen('chat');
+                                    setChatInitialMessage(initialMessage);
+                                }}
+                            />
+                        )}
+                        {screen === 'chat' && (
+                            <ChatScreen
+                                initialMessage={chatInitialMessage}
+                            />
+                        )}
+                    </View>
+                </View>
+            </SafeAreaView>
+        </SafeAreaProvider>
+    );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0', paddingHorizontal: 24,
-    }, centeredContainer: {
-        flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0',
-    }, fullContainer: {
-        flex: 1,
-    }, title: {
-        fontSize: 24, fontWeight: 'bold', marginBottom: 8, color: '#333',
-    }, subtitle: {
-        fontSize: 16, color: '#555', marginBottom: 24,
-    }, button: {
-        backgroundColor: '#007AFF', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 8,
-    }, menuButtonSpacing: {marginTop: 12}, buttonText: {
-        color: 'white', fontSize: 18, fontWeight: 'bold',
-    }, outlineButton: {
-        borderWidth: 1, borderColor: '#007AFF', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 8,
-    }, logoutButtonSpacing: {marginTop: 24}, outlineButtonText: {
-        color: '#007AFF', fontSize: 16, fontWeight: '600',
-    },
+    appRoot: {flex: 1, flexDirection: 'row', backgroundColor: '#f5f6fa'},
+    fullContainer: {flex: 1},
+    centeredContainer: {flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f6fa'},
+    loadingTitle: {fontSize: 22, fontWeight: '600', color: '#222', marginBottom: 4},
+    loadingSubtitle: {fontSize: 14, color: '#666'},
+    sidebar: {backgroundColor: '#122033', paddingTop: 8, paddingBottom: 12, borderRightWidth: 1, borderRightColor: '#1f2f44', shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: {width: 2, height: 0}, elevation: 4},
+    sidebarHeader: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, marginBottom: 12},
+    sidebarTitle: {flex: 1, fontSize: 18, fontWeight: '700', color: '#fff'},
+    toggleButton: {width: 36, height: 36, borderRadius: 18, backgroundColor: '#1d334d', justifyContent: 'center', alignItems: 'center'},
+    toggleIcon: {color: '#fff', fontSize: 20, fontWeight: '600'},
+    sidebarContent: {flexGrow: 1, paddingHorizontal: 6},
+    navItem: {borderRadius: 8, paddingVertical: 12, paddingHorizontal: 14, marginVertical: 4, backgroundColor: 'transparent'},
+    navItemActive: {backgroundColor: '#1d334d'},
+    navItemText: {color: '#d0d8e2', fontSize: 15, fontWeight: '500'},
+    navItemTextActive: {color: '#fff', fontWeight: '600'},
+    sidebarFooter: {paddingHorizontal: 10, marginTop: 12},
+    logoutBtn: {borderRadius: 8, paddingVertical: 12, alignItems: 'center', backgroundColor: '#d93636'},
+    logoutText: {color: '#fff', fontSize: 15, fontWeight: '600'},
+    mainArea: {flex: 1, flexDirection: 'column'},
+    header: {height: 54, borderBottomWidth: 1, borderBottomColor: '#e2e6ea', justifyContent: 'center', paddingHorizontal: 20, backgroundColor: '#ffffff'},
+    appName: {fontSize: 20, fontWeight: '700', color: '#1a2533', letterSpacing: 0.5},
+    mainContentWrapper: {flex: 1, padding: 16},
+    brandContainer: {flex: 1, justifyContent: 'center', alignItems: 'center', gap: 20},
+    brandImage: {width: 160, height: 160, opacity: 0.95},
+    brandTagline: {marginTop: 12, fontSize: 14, color: '#4a5a6a', fontWeight: '500'},
 });
 
 export default App;
