@@ -2,13 +2,13 @@ import {
     ActivityIndicator,
     Animated,
     FlatList,
+    Keyboard,
+    Platform,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
-    Keyboard,
-    Platform
+    View
 } from 'react-native';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -133,16 +133,20 @@ export default function ChatScreen({initialMessage}: Props) {
     useEffect(() => {
         const showEvt = Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow';
         const hideEvt = Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide';
-        const showSub = Keyboard.addListener(showEvt, (e:any) => {
+        const showSub = Keyboard.addListener(showEvt, (e: any) => {
             setKeyboardHeight(e.endCoordinates?.height || 0);
             scrollToBottom();
         });
         const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardHeight(0));
-        return () => { showSub.remove(); hideSub.remove(); };
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
     }, [scrollToBottom]);
 
     return (
-        <View style={[styles.container, {paddingBottom: keyboardHeight > 0 ? keyboardHeight : Math.max(insets.bottom, 8)}]}>
+        <View
+            style={[styles.container, {paddingBottom: keyboardHeight > 0 ? keyboardHeight : Math.max(insets.bottom, 8)}]}>
             <FlatList
                 ref={flatListRef}
                 data={messages}
@@ -173,7 +177,7 @@ export default function ChatScreen({initialMessage}: Props) {
                     activeOpacity={0.8}
                 >
                     {loading ? (
-                        <ActivityIndicator color="white" size="small" />
+                        <ActivityIndicator color="white" size="small"/>
                     ) : (
                         <Text style={styles.sendButtonText}>Enviar</Text>
                     )}

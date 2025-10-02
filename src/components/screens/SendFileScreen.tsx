@@ -1,5 +1,16 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Alert, Animated, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {api} from '../../services/api/client';
 import {API_BASE_URL} from '../../services/api/config';
@@ -214,7 +225,8 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
                 {(errors || success || connectivityStatus) && (
                     <Animated.View style={[styles.messageContainer, {opacity: animatedValue}]}>
                         {connectivityStatus && (
-                            <View style={[styles.successContainer, {backgroundColor: '#eef4ff', borderColor: '#4a6ee0'}]}>
+                            <View
+                                style={[styles.successContainer, {backgroundColor: '#eef4ff', borderColor: '#4a6ee0'}]}>
                                 <Text style={[styles.successTitle, {color: '#2c4fb8'}]}>
                                     Conectividade: {connectivityStatus}
                                 </Text>
@@ -232,7 +244,8 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
                                     <Text style={styles.successText}>Tipo: {success.file_type}</Text>
                                 )}
                                 {typeof success.size_bytes === 'number' && (
-                                    <Text style={styles.successText}>Tamanho: {formatFileSize(success.size_bytes)}</Text>
+                                    <Text
+                                        style={styles.successText}>Tamanho: {formatFileSize(success.size_bytes)}</Text>
                                 )}
                                 {success.observation && (
                                     <Text style={styles.successText}>Obs: {success.observation}</Text>

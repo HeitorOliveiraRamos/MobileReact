@@ -1,6 +1,17 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Alert, Animated, AppState, Easing, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import {
+    Alert,
+    Animated,
+    AppState,
+    Easing,
+    Image,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import LoginScreen from './src/components/screens/LoginScreen';
 import {clearToken as clearTokenStorage, getToken, setToken} from './src/services/storage/tokenStorage';
 import SendFileScreen from './src/components/screens/SendFileScreen';
@@ -113,7 +124,8 @@ function App() {
 
     if (!hydrated) {
         return (
-            <SafeAreaView edges={['top','right','left','bottom']} style={[styles.safeAreaWhite, styles.centeredContainer]}>
+            <SafeAreaView edges={['top', 'right', 'left', 'bottom']}
+                          style={[styles.safeAreaWhite, styles.centeredContainer]}>
                 <Text style={styles.loadingTitle}>Carregando…</Text>
                 <Text style={styles.loadingSubtitle}>Verificando segurança</Text>
             </SafeAreaView>
@@ -121,7 +133,8 @@ function App() {
     }
     if (!token) {
         return (
-            <SafeAreaView edges={['top','right','left','bottom']} style={[styles.safeAreaWhite, styles.fullContainer]}>
+            <SafeAreaView edges={['top', 'right', 'left', 'bottom']}
+                          style={[styles.safeAreaWhite, styles.fullContainer]}>
                 <LoginScreen onSuccess={handleLoggedIn}/>
             </SafeAreaView>
         );
@@ -131,10 +144,14 @@ function App() {
     const headerTitle = screen === 'menu' ? 'Tecno Tooling' : screen === 'sendFile' ? 'Enviar Arquivo' : 'Chat IA';
 
     return (
-        <SafeAreaView edges={['top','right','left','bottom']} style={styles.safeAreaWhite}>
+        <SafeAreaView edges={['top', 'right', 'left', 'bottom']} style={styles.safeAreaWhite}>
             <StatusBar translucent={false} backgroundColor={'#122033'} barStyle={'dark-content'}/>
             {/* Sidebar */}
-            <Animated.View style={[styles.sidebarOverlay, {width: sidebarWidth, paddingTop: insets.top, paddingBottom: insets.bottom}]}>
+            <Animated.View style={[styles.sidebarOverlay, {
+                width: sidebarWidth,
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom
+            }]}>
                 <View style={styles.sidebarHeader}>
                     {sidebarOpen && <Text style={styles.sidebarTitle}>Menu</Text>}
                     <TouchableOpacity style={styles.toggleButton} onPress={toggleSidebar} activeOpacity={0.7}>
@@ -187,7 +204,8 @@ function App() {
                     </TouchableOpacity>
                 </View>
             </Animated.View>
-            {sidebarOpen && (<TouchableOpacity style={[styles.overlay, {top: 0, bottom: 0}]} onPress={closeSidebar} activeOpacity={1}/>)}
+            {sidebarOpen && (<TouchableOpacity style={[styles.overlay, {top: 0, bottom: 0}]} onPress={closeSidebar}
+                                               activeOpacity={1}/>)}
             {/* Main content area */}
             <View style={[styles.mainArea, {marginLeft: SIDEBAR_CLOSED_WIDTH, paddingBottom: insets.bottom}]}>
                 <View style={styles.header}>
@@ -213,7 +231,7 @@ function App() {
 }
 
 const styles = StyleSheet.create({
-    safeAreaWhite: {flex:1, backgroundColor:'#ffffff'},
+    safeAreaWhite: {flex: 1, backgroundColor: '#ffffff'},
     safeArea: {flex: 1, backgroundColor: '#122033'},
     appRoot: {flex: 1, flexDirection: 'row', backgroundColor: '#f5f6fa'},
     fullContainer: {flex: 1},
@@ -257,7 +275,7 @@ const styles = StyleSheet.create({
     sidebarFooter: {paddingHorizontal: 10, marginTop: 12},
     logoutBtn: {borderRadius: 8, paddingVertical: 12, alignItems: 'center', backgroundColor: '#d93636'},
     logoutText: {color: '#fff', fontSize: 15, fontWeight: '600'},
-    mainArea: {flex: 1, flexDirection: 'column', backgroundColor:'#ffffff'},
+    mainArea: {flex: 1, flexDirection: 'column', backgroundColor: '#ffffff'},
     header: {
         height: 54,
         borderBottomWidth: 1,
@@ -267,7 +285,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#ffffff'
     },
     appName: {fontSize: 20, fontWeight: '700', color: '#1a2533', letterSpacing: 0.5},
-    mainContentWrapper: {flex: 1, padding: 16, backgroundColor:'#ffffff'},
+    mainContentWrapper: {flex: 1, padding: 16, backgroundColor: '#ffffff'},
     brandContainer: {flex: 1, justifyContent: 'center', alignItems: 'center', gap: 20},
     brandImage: {width: 160, height: 160, opacity: 0.95},
     brandTagline: {marginTop: 12, fontSize: 14, color: '#4a5a6a', fontWeight: '500'},
