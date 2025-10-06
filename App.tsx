@@ -123,34 +123,26 @@ function App() {
     }, [handleLogout]);
 
     if (!hydrated) {
-        return (
-            <SafeAreaView edges={['top', 'right', 'left', 'bottom']}
-                          style={[styles.safeAreaWhite, styles.centeredContainer]}>
+        return (<SafeAreaView edges={['top', 'right', 'left', 'bottom']}
+                              style={[styles.safeAreaWhite, styles.centeredContainer]}>
                 <Text style={styles.loadingTitle}>Carregando…</Text>
                 <Text style={styles.loadingSubtitle}>Verificando segurança</Text>
-            </SafeAreaView>
-        );
+            </SafeAreaView>);
     }
     if (!token) {
-        return (
-            <SafeAreaView edges={['top', 'right', 'left', 'bottom']}
-                          style={[styles.safeAreaWhite, styles.fullContainer]}>
+        return (<SafeAreaView edges={['top', 'right', 'left', 'bottom']}
+                              style={[styles.safeAreaWhite, styles.fullContainer]}>
                 <LoginScreen onSuccess={handleLoggedIn}/>
-            </SafeAreaView>
-        );
+            </SafeAreaView>);
     }
     const arrowIcon = sidebarOpen ? '‹' : '›';
     const iconSource = require('./src/assets/icon.png');
     const headerTitle = screen === 'menu' ? 'Tecno Tooling' : screen === 'sendFile' ? 'Enviar Arquivo' : 'Chat IA';
 
-    return (
-        <SafeAreaView edges={['top', 'right', 'left', 'bottom']} style={styles.safeAreaWhite}>
+    return (<SafeAreaView edges={['top', 'right', 'left', 'bottom']} style={styles.safeAreaWhite}>
             <StatusBar translucent={false} backgroundColor={'#122033'} barStyle={'dark-content'}/>
-            {/* Sidebar */}
             <Animated.View style={[styles.sidebarOverlay, {
-                width: sidebarWidth,
-                paddingTop: insets.top,
-                paddingBottom: insets.bottom
+                width: sidebarWidth, paddingTop: insets.top, paddingBottom: insets.bottom
             }]}>
                 <View style={styles.sidebarHeader}>
                     {sidebarOpen && <Text style={styles.sidebarTitle}>Menu</Text>}
@@ -206,7 +198,6 @@ function App() {
             </Animated.View>
             {sidebarOpen && (<TouchableOpacity style={[styles.overlay, {top: 0, bottom: 0}]} onPress={closeSidebar}
                                                activeOpacity={1}/>)}
-            {/* Main content area */}
             <View style={[styles.mainArea, {marginLeft: SIDEBAR_CLOSED_WIDTH, paddingBottom: insets.bottom}]}>
                 <View style={styles.header}>
                     <Text style={styles.appName}>{headerTitle}</Text>
@@ -226,8 +217,7 @@ function App() {
                     />)}
                 </View>
             </View>
-        </SafeAreaView>
-    );
+        </SafeAreaView>);
 }
 
 const styles = StyleSheet.create({
