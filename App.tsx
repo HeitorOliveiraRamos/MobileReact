@@ -122,6 +122,8 @@ function App() {
         }, {text: 'Sair', style: 'destructive', onPress: handleLogout},]);
     }, [handleLogout]);
 
+    const safeEdges = screen === 'chat' ? (['top', 'right', 'left'] as const) : (['top', 'right', 'left', 'bottom'] as const);
+
     if (!hydrated) {
         return (<SafeAreaView edges={['top', 'right', 'left', 'bottom']}
                               style={[styles.safeAreaWhite, styles.centeredContainer]}>
@@ -139,14 +141,16 @@ function App() {
     const iconSource = require('./src/assets/icon.png');
     const headerTitle = screen === 'menu' ? 'Tecno Tooling' : screen === 'sendFile' ? 'Enviar Arquivo' : 'Chat IA';
 
-    return (<SafeAreaView edges={['top', 'right', 'left', 'bottom']} style={styles.safeAreaWhite}>
+    return (<SafeAreaView edges={safeEdges} style={styles.safeAreaWhite}>
             <StatusBar translucent={false} backgroundColor={'#122033'} barStyle={'dark-content'}/>
             <Animated.View style={[styles.sidebarOverlay, {
-                width: sidebarWidth, paddingTop: insets.top, paddingBottom: insets.bottom
+                width: sidebarWidth,
+                paddingTop: insets.top + 8,
+                paddingBottom: insets.bottom + 12
             }]}>
                 <View style={styles.sidebarHeader}>
                     {sidebarOpen && <Text style={styles.sidebarTitle}>Menu</Text>}
-                    <TouchableOpacity style={styles.toggleButton} onPress={toggleSidebar} activeOpacity={0.7}>
+                    <TouchableOpacity style={[styles.toggleButton, {marginTop: 4}]} onPress={toggleSidebar} activeOpacity={0.7}>
                         <Text style={styles.toggleIcon}>{arrowIcon}</Text>
                     </TouchableOpacity>
                 </View>
@@ -191,18 +195,18 @@ function App() {
                     </TouchableOpacity>
                 </View>
                 <View style={styles.sidebarFooter}>
-                    <TouchableOpacity onPress={confirmLogout} style={styles.logoutBtn} activeOpacity={0.8}>
+                    <TouchableOpacity onPress={confirmLogout} style={[styles.logoutBtn, {marginBottom: 8}]} activeOpacity={0.8}>
                         <Text style={styles.logoutText}>{sidebarOpen ? 'Sair' : '⎋'}</Text>
                     </TouchableOpacity>
                 </View>
             </Animated.View>
             {sidebarOpen && (<TouchableOpacity style={[styles.overlay, {top: 0, bottom: 0}]} onPress={closeSidebar}
                                                activeOpacity={1}/>)}
-            <View style={[styles.mainArea, {marginLeft: SIDEBAR_CLOSED_WIDTH, paddingBottom: insets.bottom}]}>
+            <View style={[styles.mainArea, {marginLeft: SIDEBAR_CLOSED_WIDTH, paddingBottom: screen === 'chat' ? 0 : insets.bottom}]}>
                 <View style={styles.header}>
                     <Text style={styles.appName}>{headerTitle}</Text>
                 </View>
-                <View style={styles.mainContentWrapper}>
+                <View style={[styles.mainContentWrapper, screen === 'chat' && {padding: 0}]}>
                     {screen === 'menu' && (<View style={styles.brandContainer}>
                         <Image source={iconSource} style={styles.brandImage} resizeMode="contain"/>
                     </View>)}

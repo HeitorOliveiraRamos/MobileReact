@@ -24,34 +24,24 @@ const AnimatedText = React.memo(({text, onAnimationComplete}: { text: string; on
     useEffect(() => {
         animatedValues.forEach(v => v.setValue(0));
         const animations = words.map((_, i) => Animated.timing(animatedValues[i], {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true
+            toValue: 1, duration: 300, useNativeDriver: true
         }));
         Animated.stagger(120, animations).start(() => onAnimationComplete?.());
     }, [words, animatedValues, onAnimationComplete]);
-    return (
-        <View style={styles.inlineWords}>
-            {words.map((word, index) => (
-                <React.Fragment key={`${text}-${index}`}>
+    return (<View style={styles.inlineWords}>
+            {words.map((word, index) => (<React.Fragment key={`${text}-${index}`}>
                     <Animated.View style={{
-                        opacity: animatedValues[index],
-                        transform: [{
+                        opacity: animatedValues[index], transform: [{
                             translateY: animatedValues[index].interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [8, 0]
+                                inputRange: [0, 1], outputRange: [8, 0]
                             })
                         }, {scale: animatedValues[index].interpolate({inputRange: [0, 1], outputRange: [0.98, 1]})}]
                     }}>
                         <Text style={[styles.messageText, styles.aiMessageText]}>{word}</Text>
                     </Animated.View>
-                    {index < words.length - 1 && (
-                        <Text style={[styles.messageText, styles.aiMessageText]}> </Text>
-                    )}
-                </React.Fragment>
-            ))}
-        </View>
-    );
+                    {index < words.length - 1 && (<Text style={[styles.messageText, styles.aiMessageText]}> </Text>)}
+                </React.Fragment>))}
+        </View>);
 });
 
 export default function ChatScreen({initialMessage}: Props) {
@@ -84,10 +74,7 @@ export default function ChatScreen({initialMessage}: Props) {
     const sendMessage = useCallback(async () => {
         if (!inputText.trim() || loading) return;
         const userMessage: Message = {
-            id: Date.now().toString(),
-            text: inputText.trim(),
-            isUser: true,
-            timestamp: new Date()
+            id: Date.now().toString(), text: inputText.trim(), isUser: true, timestamp: new Date()
         };
         setMessages(prev => [...prev, userMessage]);
         setInputText('');
@@ -125,8 +112,7 @@ export default function ChatScreen({initialMessage}: Props) {
             <Text style={[styles.timestamp, item.isUser ? styles.userTimestamp : styles.aiTimestamp]}>
                 {item.timestamp.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
             </Text>
-        </View>
-    ), [handleAIAnimationComplete]);
+        </View>), [handleAIAnimationComplete]);
 
     const keyExtractor = useCallback((item: Message) => item.id, []);
 
@@ -144,9 +130,8 @@ export default function ChatScreen({initialMessage}: Props) {
         };
     }, [scrollToBottom]);
 
-    return (
-        <View
-            style={[styles.container, {paddingBottom: keyboardHeight > 0 ? keyboardHeight : Math.max(insets.bottom, 8)}]}>
+    return (<View
+            style={[styles.container, {paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0}]}>
             <FlatList
                 ref={flatListRef}
                 data={messages}
@@ -157,7 +142,9 @@ export default function ChatScreen({initialMessage}: Props) {
                 onContentSizeChange={scrollToBottom}
                 keyboardShouldPersistTaps="handled"
             />
-            <View style={[styles.inputContainer, {marginBottom: keyboardHeight > 0 ? 0 : 0}]}>
+            <View
+                style={[styles.inputContainer, {paddingBottom: insets.bottom + 12}]}
+            >
                 <TextInput
                     style={styles.textInput}
                     placeholder="Digite sua mensagem..."
@@ -176,15 +163,11 @@ export default function ChatScreen({initialMessage}: Props) {
                     disabled={!inputText.trim() || loading}
                     activeOpacity={0.8}
                 >
-                    {loading ? (
-                        <ActivityIndicator color="white" size="small"/>
-                    ) : (
-                        <Text style={styles.sendButtonText}>Enviar</Text>
-                    )}
+                    {loading ? (<ActivityIndicator color="white" size="small"/>) : (
+                        <Text style={styles.sendButtonText}>Enviar</Text>)}
                 </TouchableOpacity>
             </View>
-        </View>
-    );
+        </View>);
 }
 
 const styles = StyleSheet.create({
@@ -193,19 +176,11 @@ const styles = StyleSheet.create({
     messagesList: {flex: 1, paddingHorizontal: 16},
     messagesContent: {paddingVertical: 16},
     messageContainer: {
-        marginVertical: 4,
-        maxWidth: '80%',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 16
+        marginVertical: 4, maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16
     },
     userMessage: {alignSelf: 'flex-end', backgroundColor: '#007AFF', borderBottomRightRadius: 4},
     aiMessage: {
-        alignSelf: 'flex-start',
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderBottomLeftRadius: 4
+        alignSelf: 'flex-start', backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderBottomLeftRadius: 4
     },
     messageText: {fontSize: 16, lineHeight: 20},
     userMessageText: {color: 'white'},
