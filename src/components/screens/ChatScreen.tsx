@@ -26,21 +26,36 @@ function ChatMarkdown({text, style, animateWords}: { text: string; style: any; a
     const getDelay = React.useCallback(() => (indexRef.current++) * 70, []);
     const capDelay = (d: number) => Math.min(d, 1200);
 
-    const FadeIn: React.FC<{ delay?: number; children: React.ReactNode }> = ({delay = 0, children}) => {
+    const FadeInView: React.FC<{ delay?: number; children: React.ReactNode }> = ({delay = 0, children}) => {
         const opacity = React.useRef(new Animated.Value(0)).current;
         React.useEffect(() => {
             Animated.timing(opacity, {toValue: 1, duration: 240, delay: capDelay(delay), useNativeDriver: true}).start();
         }, [delay, opacity]);
         return <Animated.View style={{opacity}}>{children}</Animated.View>;
     };
+    const FadeInText: React.FC<{ delay?: number; style?: any; children: React.ReactNode }> = ({delay = 0, style, children}) => {
+        const opacity = React.useRef(new Animated.Value(0)).current;
+        React.useEffect(() => {
+            Animated.timing(opacity, {toValue: 1, duration: 240, delay: capDelay(delay), useNativeDriver: true}).start();
+        }, [delay, opacity]);
+        return <Animated.Text style={[{opacity}, style]}>{children}</Animated.Text>;
+    };
 
     const rules = React.useMemo(() => {
-        const containerFadeOnce = (node: any, children: any) => (
-            <FadeIn key={node.key} delay={capDelay(getDelay())}>{children}</FadeIn>
+        const containerFadeInline = (styleKey: string) => (node: any, children: any, _parent: any, stylesArg: any) => (
+            <FadeInText key={node.key} delay={capDelay(getDelay())} style={stylesArg?.[styleKey]}>{children}</FadeInText>
+        );
+        const containerFadeHeading = (styleKey: string) => (node: any, children: any, _parent: any, stylesArg: any) => (
+            <FadeInText key={node.key} delay={capDelay(getDelay())} style={stylesArg?.[styleKey]}>{children}</FadeInText>
+        );
+        const containerFadeBlock = () => (node: any, children: any) => (
+            <FadeInView key={node.key} delay={capDelay(getDelay())}>{children}</FadeInView>
         );
         const markdownContainers = new Set([
-            'strong', 'em', 'heading1', 'heading2', 'heading3', 'heading4', 'heading5', 'heading6',
-            'link', 'inlineCode', 'code_block', 'fence', 'blockquote'
+            'strong', 'em', 'link', 'inlineCode',
+            'heading1', 'heading2', 'heading3', 'heading4', 'heading5', 'heading6',
+            'list_item', 'ordered_list', 'bullet_list',
+            'code_block', 'fence', 'blockquote'
         ]);
         return {
             // Animate plain text word-by-word when allowed
@@ -59,29 +74,30 @@ function ChatMarkdown({text, style, animateWords}: { text: string; style: any; a
                             if (!tok) return null;
                             if (/^\s+$/.test(tok)) return <Text key={`${node.key}-s-${i}`}>{tok}</Text>;
                             const delay = capDelay(getDelay());
-                            return (
-                                <FadeIn key={`${node.key}-w-${i}`} delay={delay}>
-                                    <Text>{tok}</Text>
-                                </FadeIn>
-                            );
+                            return <FadeInText key={`${node.key}-w-${i}`} delay={delay}>{tok}</FadeInText>;
                         })}
                     </Text>
                 );
             },
-            // Fade these markdown blocks as a whole once
-            strong: (node: any, children: any) => containerFadeOnce(node, children),
-            em: (node: any, children: any) => containerFadeOnce(node, children),
-            link: (node: any, children: any) => containerFadeOnce(node, children),
-            heading1: (node: any, children: any) => containerFadeOnce(node, children),
-            heading2: (node: any, children: any) => containerFadeOnce(node, children),
-            heading3: (node: any, children: any) => containerFadeOnce(node, children),
-            heading4: (node: any, children: any) => containerFadeOnce(node, children),
-            heading5: (node: any, children: any) => containerFadeOnce(node, children),
-            heading6: (node: any, children: any) => containerFadeOnce(node, children),
-            inlineCode: (node: any, children: any) => containerFadeOnce(node, children),
-            code_block: (node: any, children: any) => containerFadeOnce(node, children),
-            fence: (node: any, children: any) => containerFadeOnce(node, children),
-            blockquote: (node: any, children: any) => containerFadeOnce(node, children)
+            // Fade inline markdown nodes as a unit
+            strong: containerFadeInline('strong'),
+            em: containerFadeInline('em'),
+            link: containerFadeInline('link'),
+            inlineCode: containerFadeInline('inlineCode'),
+            // Headings as a unit
+            heading1: containerFadeHeading('heading1'),
+            heading2: containerFadeHeading('heading2'),
+            heading3: containerFadeHeading('heading3'),
+            heading4: containerFadeHeading('heading4'),
+            heading5: containerFadeHeading('heading5'),
+            heading6: containerFadeHeading('heading6'),
+            // Lists/items and block-level containers as a unit
+            list_item: containerFadeBlock(),
+            ordered_list: containerFadeBlock(),
+            bullet_list: containerFadeBlock(),
+            code_block: containerFadeBlock(),
+            fence: containerFadeBlock(),
+            blockquote: containerFadeBlock()
         } as const;
     }, [animateWords, getDelay]);
 
@@ -113,11 +129,6 @@ export default function ChatScreen({initialMessage}: Props) {
             flatListRef.current?.scrollToEnd({animated: true});
         }, 100);
     }, []);
-    const handleAIAnimationComplete = useCallback(() => {
-        // Animation removed in favor of Markdown rendering; keep scroll just in case
-        scrollToBottom();
-    }, [scrollToBottom]);
-
     const sendMessage = useCallback(async () => {
         if (!inputText.trim() || loading) return;
         const userMessage: Message = {
