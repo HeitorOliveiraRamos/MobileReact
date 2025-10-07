@@ -10,39 +10,85 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {api} from '../../services/api/client';
+import Markdown from 'react-native-markdown-display';
 
 type Props = { initialMessage?: string };
 
 type Message = { id: string; text: string; isUser: boolean; timestamp: Date; isAnimating?: boolean };
 
-const AnimatedText = React.memo(({text, onAnimationComplete}: { text: string; onAnimationComplete?: () => void }) => {
-    const words = useMemo(() => text.split(/\s+/).filter(Boolean), [text]);
-    const animatedValues = useMemo(() => words.map(() => new Animated.Value(0)), [words]);
-    useEffect(() => {
-        animatedValues.forEach(v => v.setValue(0));
-        const animations = words.map((_, i) => Animated.timing(animatedValues[i], {
-            toValue: 1, duration: 300, useNativeDriver: true
-        }));
-        Animated.stagger(120, animations).start(() => onAnimationComplete?.());
-    }, [words, animatedValues, onAnimationComplete]);
-    return (<View style={styles.inlineWords}>
-            {words.map((word, index) => (<React.Fragment key={`${text}-${index}`}>
-                    <Animated.View style={{
-                        opacity: animatedValues[index], transform: [{
-                            translateY: animatedValues[index].interpolate({
-                                inputRange: [0, 1], outputRange: [8, 0]
-                            })
-                        }, {scale: animatedValues[index].interpolate({inputRange: [0, 1], outputRange: [0.98, 1]})}]
-                    }}>
-                        <Text style={[styles.messageText, styles.aiMessageText]}>{word}</Text>
-                    </Animated.View>
-                    {index < words.length - 1 && (<Text style={[styles.messageText, styles.aiMessageText]}> </Text>)}
-                </React.Fragment>))}
-        </View>);
-});
+
+// Animated Markdown renderer that staggers text node tokens while preserving Markdown styling
+function ChatMarkdown({text, style, animateWords}: { text: string; style: any; animateWords: boolean }) {
+    const indexRef = useRef(0);
+    const getDelay = React.useCallback(() => (indexRef.current++) * 70, []);
+    const capDelay = (d: number) => Math.min(d, 1200);
+
+    const FadeIn: React.FC<{ delay?: number; children: React.ReactNode }> = ({delay = 0, children}) => {
+        const opacity = React.useRef(new Animated.Value(0)).current;
+        React.useEffect(() => {
+            Animated.timing(opacity, {toValue: 1, duration: 240, delay: capDelay(delay), useNativeDriver: true}).start();
+        }, [delay, opacity]);
+        return <Animated.View style={{opacity}}>{children}</Animated.View>;
+    };
+
+    const rules = React.useMemo(() => {
+        const containerFadeOnce = (node: any, children: any) => (
+            <FadeIn key={node.key} delay={capDelay(getDelay())}>{children}</FadeIn>
+        );
+        const markdownContainers = new Set([
+            'strong', 'em', 'heading1', 'heading2', 'heading3', 'heading4', 'heading5', 'heading6',
+            'link', 'inlineCode', 'code_block', 'fence', 'blockquote'
+        ]);
+        return {
+            // Animate plain text word-by-word when allowed
+            text: (node: any, _children: any, parent: any, stylesArg: any) => {
+                const content: string = node.content ?? '';
+                if (!content) return null;
+                const parentType = parent?.type;
+                // Skip word-by-word inside markdown containers or when not animating
+                if (!animateWords || markdownContainers.has(parentType)) {
+                    return <Text key={node.key} style={stylesArg?.text}>{content}</Text>;
+                }
+                const tokens = content.split(/(\s+)/);
+                return (
+                    <Text key={node.key}>
+                        {tokens.map((tok: string, i: number) => {
+                            if (!tok) return null;
+                            if (/^\s+$/.test(tok)) return <Text key={`${node.key}-s-${i}`}>{tok}</Text>;
+                            const delay = capDelay(getDelay());
+                            return (
+                                <FadeIn key={`${node.key}-w-${i}`} delay={delay}>
+                                    <Text>{tok}</Text>
+                                </FadeIn>
+                            );
+                        })}
+                    </Text>
+                );
+            },
+            // Fade these markdown blocks as a whole once
+            strong: (node: any, children: any) => containerFadeOnce(node, children),
+            em: (node: any, children: any) => containerFadeOnce(node, children),
+            link: (node: any, children: any) => containerFadeOnce(node, children),
+            heading1: (node: any, children: any) => containerFadeOnce(node, children),
+            heading2: (node: any, children: any) => containerFadeOnce(node, children),
+            heading3: (node: any, children: any) => containerFadeOnce(node, children),
+            heading4: (node: any, children: any) => containerFadeOnce(node, children),
+            heading5: (node: any, children: any) => containerFadeOnce(node, children),
+            heading6: (node: any, children: any) => containerFadeOnce(node, children),
+            inlineCode: (node: any, children: any) => containerFadeOnce(node, children),
+            code_block: (node: any, children: any) => containerFadeOnce(node, children),
+            fence: (node: any, children: any) => containerFadeOnce(node, children),
+            blockquote: (node: any, children: any) => containerFadeOnce(node, children)
+        } as const;
+    }, [animateWords, getDelay]);
+
+    // Reset sequence per render to start stagger from the beginning
+    indexRef.current = 0;
+    return <Markdown style={style} rules={rules}>{text}</Markdown>;
+}
 
 export default function ChatScreen({initialMessage}: Props) {
     const insets = useSafeAreaInsets();
@@ -68,6 +114,7 @@ export default function ChatScreen({initialMessage}: Props) {
         }, 100);
     }, []);
     const handleAIAnimationComplete = useCallback(() => {
+        // Animation removed in favor of Markdown rendering; keep scroll just in case
         scrollToBottom();
     }, [scrollToBottom]);
 
@@ -107,12 +154,16 @@ export default function ChatScreen({initialMessage}: Props) {
 
     const renderMessage = useCallback(({item}: { item: Message }) => (
         <View style={[styles.messageContainer, item.isUser ? styles.userMessage : styles.aiMessage]}>
-            {item.isUser ? (<Text style={[styles.messageText, styles.userMessageText]}>{item.text}</Text>) : (
-                <AnimatedText text={item.text} onAnimationComplete={handleAIAnimationComplete}/>)}
+            {item.isUser ? (
+                <Markdown style={markdownStyles.user}>{item.text}</Markdown>
+            ) : (
+                <ChatMarkdown text={item.text} style={markdownStyles.ai} animateWords={true} />
+            )}
             <Text style={[styles.timestamp, item.isUser ? styles.userTimestamp : styles.aiTimestamp]}>
                 {item.timestamp.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
             </Text>
-        </View>), [handleAIAnimationComplete]);
+        </View>
+    ), []);
 
     const keyExtractor = useCallback((item: Message) => item.id, []);
 
@@ -170,22 +221,51 @@ export default function ChatScreen({initialMessage}: Props) {
         </View>);
 }
 
+// Markdown styles for user and AI messages
+const markdownStyles = {
+    ai: {
+        body: { color: '#000', fontSize: 16, lineHeight: 20 },
+        text: { color: '#000' },
+        paragraph: { marginTop: 0, marginBottom: 0 },
+        heading1: { color: '#000', fontSize: 22, fontWeight: '700' },
+        heading2: { color: '#000', fontSize: 20, fontWeight: '700' },
+        heading3: { color: '#000', fontSize: 18, fontWeight: '700' },
+        strong: { fontWeight: '700' }
+    },
+    user: {
+        body: { color: '#fff', fontSize: 16, lineHeight: 20 },
+        text: { color: '#fff' },
+        paragraph: { marginTop: 0, marginBottom: 0 },
+        heading1: { color: '#fff', fontSize: 22, fontWeight: '700' },
+        heading2: { color: '#fff', fontSize: 20, fontWeight: '700' },
+        heading3: { color: '#fff', fontSize: 18, fontWeight: '700' },
+        strong: { fontWeight: '700' }
+    }
+} as const;
+
 const styles = StyleSheet.create({
     container: {flex: 1, backgroundColor: '#ffffff'},
     content: {flex: 1},
     messagesList: {flex: 1, paddingHorizontal: 16},
     messagesContent: {paddingVertical: 16},
     messageContainer: {
-        marginVertical: 4, maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16
+        marginVertical: 4,
+        maxWidth: '80%',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 16
     },
     userMessage: {alignSelf: 'flex-end', backgroundColor: '#007AFF', borderBottomRightRadius: 4},
     aiMessage: {
-        alignSelf: 'flex-start', backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderBottomLeftRadius: 4
+        alignSelf: 'flex-start',
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderBottomLeftRadius: 4
     },
     messageText: {fontSize: 16, lineHeight: 20},
     userMessageText: {color: 'white'},
     aiMessageText: {color: '#333'},
-    inlineWords: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end'},
     timestamp: {fontSize: 12, marginTop: 4},
     userTimestamp: {color: 'rgba(255, 255, 255, 0.7)', textAlign: 'right'},
     aiTimestamp: {color: '#666'},
