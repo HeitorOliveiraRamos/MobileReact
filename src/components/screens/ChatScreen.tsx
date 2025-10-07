@@ -20,7 +20,6 @@ type Props = { initialMessage?: string };
 type Message = { id: string; text: string; isUser: boolean; timestamp: Date; isAnimating?: boolean };
 
 
-// Animated Markdown renderer that staggers text node tokens while preserving Markdown styling
 function ChatMarkdown({text, style, animateWords}: { text: string; style: any; animateWords: boolean }) {
     const indexRef = useRef(0);
     const getDelay = React.useCallback(() => (indexRef.current++) * 70, []);
@@ -58,12 +57,10 @@ function ChatMarkdown({text, style, animateWords}: { text: string; style: any; a
             'code_block', 'fence', 'blockquote'
         ]);
         return {
-            // Animate plain text word-by-word when allowed
             text: (node: any, _children: any, parent: any, stylesArg: any) => {
                 const content: string = node.content ?? '';
                 if (!content) return null;
                 const parentType = parent?.type;
-                // Skip word-by-word inside markdown containers or when not animating
                 if (!animateWords || markdownContainers.has(parentType)) {
                     return <Text key={node.key} style={stylesArg?.text}>{content}</Text>;
                 }
@@ -79,19 +76,16 @@ function ChatMarkdown({text, style, animateWords}: { text: string; style: any; a
                     </Text>
                 );
             },
-            // Fade inline markdown nodes as a unit
             strong: containerFadeInline('strong'),
             em: containerFadeInline('em'),
             link: containerFadeInline('link'),
             inlineCode: containerFadeInline('inlineCode'),
-            // Headings as a unit
             heading1: containerFadeHeading('heading1'),
             heading2: containerFadeHeading('heading2'),
             heading3: containerFadeHeading('heading3'),
             heading4: containerFadeHeading('heading4'),
             heading5: containerFadeHeading('heading5'),
             heading6: containerFadeHeading('heading6'),
-            // Lists/items and block-level containers as a unit
             list_item: containerFadeBlock(),
             ordered_list: containerFadeBlock(),
             bullet_list: containerFadeBlock(),
@@ -101,7 +95,6 @@ function ChatMarkdown({text, style, animateWords}: { text: string; style: any; a
         } as const;
     }, [animateWords, getDelay]);
 
-    // Reset sequence per render to start stagger from the beginning
     indexRef.current = 0;
     return <Markdown style={style} rules={rules}>{text}</Markdown>;
 }
@@ -232,7 +225,6 @@ export default function ChatScreen({initialMessage}: Props) {
         </View>);
 }
 
-// Markdown styles for user and AI messages
 const markdownStyles = {
     ai: {
         body: { color: '#000', fontSize: 16, lineHeight: 20 },
