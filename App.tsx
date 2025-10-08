@@ -9,7 +9,8 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    Modal
 } from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import LoginScreen from './src/components/screens/LoginScreen';
@@ -17,6 +18,8 @@ import {clearToken as clearTokenStorage, getToken, setToken} from './src/service
 import SendFileScreen from './src/components/screens/SendFileScreen';
 import ChatScreen from './src/components/screens/ChatScreen';
 import {clearAuthToken, isTokenValid, setAuthToken} from './src/services/api/client';
+import { endChat } from './src/services/api/chat';
+import { clearActiveChat } from './src/services/storage/chatStorage';
 
 type AppScreen = 'menu' | 'sendFile' | 'chat';
 
@@ -33,6 +36,9 @@ function App() {
     const [activeChatId, setActiveChatId] = useState<number | null>(null);
     const [chatSessionKey, setChatSessionKey] = useState(0);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [titlePopupVisible, setTitlePopupVisible] = useState(false);
+    const [titleIsTruncated, setTitleIsTruncated] = useState(false);
+    const [logoutPopupVisible, setLogoutPopupVisible] = useState(false);
     const sidebarWidth = useRef(new Animated.Value(SIDEBAR_CLOSED_WIDTH)).current;
 
     const toggleSidebar = useCallback(() => {
@@ -120,20 +126,34 @@ function App() {
     }, []);
 
     const confirmLogout = useCallback(() => {
-        Alert.alert('Confirmar Logout', 'Tem certeza que deseja sair?', [{
-            text: 'Cancelar', style: 'cancel'
-        }, {text: 'Sair', style: 'destructive', onPress: handleLogout},]);
+        // Open custom modal instead of system Alert
+        setLogoutPopupVisible(true);
+    }, []);
+
+    const performLogout = useCallback(async () => {
+        setLogoutPopupVisible(false);
+        await handleLogout();
     }, [handleLogout]);
 
     const handleNewChatPress = useCallback(async () => {
-        // Rely on ChatScreen unmount to send PUT (end chat), then refresh
-        setChatTitle(undefined);
-        setChatInitialMessage(undefined);
-        setActiveChatId(null);
-        setChatSessionKey(k => k + 1);
-    }, []);
+        // Explicitly end current chat (if any), clear persisted chat, then start a fresh session
+        try {
+            if (activeChatId != null) {
+                await endChat(activeChatId);
+            }
+        } catch (e) {
+            // best-effort; ignore errors
+        } finally {
+            await clearActiveChat();
+            setChatTitle(undefined);
+            setChatInitialMessage(undefined);
+            setActiveChatId(null);
+            setChatSessionKey(k => k + 1);
+        }
+    }, [activeChatId]);
 
     const safeEdges = screen === 'chat' ? (['top', 'right', 'left'] as const) : (['top', 'right', 'left', 'bottom'] as const);
+
 
     if (!hydrated) {
         return (<SafeAreaView edges={['top', 'right', 'left', 'bottom']}
@@ -216,13 +236,37 @@ function App() {
             {sidebarOpen && (<TouchableOpacity style={[styles.overlay, {top: 0, bottom: 0}]} onPress={closeSidebar}
                                                activeOpacity={1}/>)}
             <View style={[styles.mainArea, {marginLeft: SIDEBAR_CLOSED_WIDTH, paddingBottom: screen === 'chat' ? 0 : insets.bottom}]}>
-                <View style={[styles.header, {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}]}>
-                    <Text style={styles.appName}>{headerTitle}</Text>
-                    {screen === 'chat' && activeChatId != null && (
-                        <TouchableOpacity onPress={handleNewChatPress} activeOpacity={0.8} style={styles.newChatBtn}>
-                            <Text style={styles.newChatBtnText}>+</Text>
+                <View style={[styles.header, styles.headerRow]}>
+                    <View style={styles.headerTitleWrap}>
+                        <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => { if (titleIsTruncated) setTitlePopupVisible(true); }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Mostrar título completo"
+                        >
+                            <Text
+                                style={styles.appName}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                                onTextLayout={(e) => {
+                                    const first = e.nativeEvent.lines?.[0]?.text ?? '';
+                                    // RN usa o caractere de reticências “…” quando truncado
+                                    setTitleIsTruncated(first.includes('…'));
+                                }}
+                            >
+                                {headerTitle}
+                            </Text>
                         </TouchableOpacity>
-                    )}
+                    </View>
+                    <View style={styles.headerRight}>
+                        {screen === 'chat' && activeChatId != null ? (
+                            <TouchableOpacity onPress={handleNewChatPress} activeOpacity={0.8} style={styles.newChatBtn}>
+                                <Text style={styles.newChatBtnText}>+</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <View style={{width: 32, height: 32}} />
+                        )}
+                    </View>
                 </View>
                 <View style={[styles.mainContentWrapper, screen === 'chat' && {padding: 0}]}>
                     {screen === 'menu' && (<View style={styles.brandContainer}>
@@ -247,6 +291,43 @@ function App() {
                     />)}
                 </View>
             </View>
+
+            {/* Popup do título completo */}
+            <Modal
+                visible={titlePopupVisible}
+                animationType="fade"
+                transparent
+                onRequestClose={() => setTitlePopupVisible(false)}
+            >
+                <TouchableOpacity style={styles.popupBackdrop} activeOpacity={1} onPress={() => setTitlePopupVisible(false)}>
+                    <View style={styles.titlePopupContainer}>
+                        <Text style={styles.titlePopupText}>{headerTitle}</Text>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* Popup de confirmação de logout */}
+            <Modal
+                visible={logoutPopupVisible}
+                animationType="fade"
+                transparent
+                onRequestClose={() => setLogoutPopupVisible(false)}
+            >
+                <TouchableOpacity style={styles.popupBackdrop} activeOpacity={1} onPress={() => setLogoutPopupVisible(false)}>
+                    <View style={styles.titlePopupContainer}>
+                        <Text style={[styles.titlePopupText, {marginBottom: 8}]}>Sair da conta</Text>
+                        <Text style={{fontSize: 14, color: '#4a5a6a', textAlign: 'center', marginBottom: 12}}>Tem certeza que deseja sair?</Text>
+                        <View style={styles.popupButtonsRow}>
+                            <TouchableOpacity style={[styles.popupBtn, styles.popupBtnSecondary]} onPress={() => setLogoutPopupVisible(false)} activeOpacity={0.8}>
+                                <Text style={[styles.popupBtnText, styles.popupBtnTextSecondary]}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.popupBtn, styles.popupBtnDestructive]} onPress={performLogout} activeOpacity={0.8}>
+                                <Text style={[styles.popupBtnText, styles.popupBtnTextDestructive]}>Sair</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </SafeAreaView>);
 }
 
@@ -304,6 +385,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         backgroundColor: '#ffffff'
     },
+    headerRow: { flexDirection: 'row', alignItems: 'center' },
+    headerTitleWrap: { flex: 1, minWidth: 0, paddingRight: 12 },
+    headerRight: { width: 48, alignItems: 'flex-end', justifyContent: 'center' },
     appName: {fontSize: 20, fontWeight: '700', color: '#1a2533', letterSpacing: 0.5},
     mainContentWrapper: {flex: 1, padding: 16, backgroundColor: '#ffffff'},
     brandContainer: {flex: 1, justifyContent: 'center', alignItems: 'center', gap: 20},
@@ -333,7 +417,35 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center'
     },
-    newChatBtnText: { color: '#fff', fontSize: 22, fontWeight: '700', lineHeight: 24 }
+    newChatBtnText: { color: '#fff', fontSize: 22, fontWeight: '700', lineHeight: 24 },
+    popupBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.25)',
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    titlePopupContainer: {
+        maxWidth: '85%',
+        backgroundColor: '#ffffff',
+        borderRadius: 10,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderColor: '#e2e6ea',
+        shadowColor: '#000',
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 5
+    },
+    titlePopupText: { fontSize: 16, color: '#1a2533', fontWeight: '600', textAlign: 'center' },
+    popupButtonsRow: { flexDirection: 'row', gap: 10, justifyContent: 'center', alignItems: 'center' },
+    popupBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, minWidth: 100, alignItems: 'center' },
+    popupBtnText: { fontSize: 15, fontWeight: '600' },
+    popupBtnSecondary: { backgroundColor: '#f1f3f5', borderWidth: 1, borderColor: '#e2e6ea' },
+    popupBtnTextSecondary: { color: '#1a2533' },
+    popupBtnDestructive: { backgroundColor: '#d93636' },
+    popupBtnTextDestructive: { color: '#fff' }
 });
 
 export default App;

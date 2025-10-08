@@ -22,4 +22,9 @@ export const getSecureHeaders = () => ({
     'Expires': '0',
 });
 
-export const API_TIMEOUT = {DEFAULT: 15000, UPLOAD: 60000, DOWNLOAD: 30000};
+export const API_TIMEOUT = {
+    DEFAULT: 15000,
+    UPLOAD: 60000,
+    DOWNLOAD: 30000,
+    CHAT: 300000
+};

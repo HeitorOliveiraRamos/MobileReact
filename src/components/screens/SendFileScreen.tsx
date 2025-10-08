@@ -15,6 +15,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {api} from '../../services/api/client';
 import {API_BASE_URL} from '../../services/api/config';
 import {errorCodes, isErrorWithCode, pick as pickDocument, types as DocTypes} from '@react-native-documents/picker';
+import { saveActiveChat } from '../../services/storage/chatStorage';
 
 type Props = { onNavigateToChat: (initialMessage?: string) => void };
 
@@ -23,6 +24,8 @@ type ValidationError = { field: string; message: string };
 type UploadSuccess = {
     id_file: number;
     ai_overview: string;
+    id_chat?: number; // new from API
+    titulo?: string;  // new from API
     file_name?: string;
     file_type?: string;
     observation?: string | null;
@@ -128,11 +131,42 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
             setSuccess(response.data);
             setFile(null);
             setObservation('');
-            if (response.data.ai_overview) {
+
+            // If API returned AI overview and chat identifiers, seed the active chat in storage
+            const { ai_overview, id_chat, titulo } = response.data as UploadSuccess;
+            if (ai_overview) {
+                try {
+                    if (id_chat || titulo) {
+                        await saveActiveChat({
+                            idChat: typeof id_chat === 'number' ? id_chat : null,
+                            title: titulo,
+                            messages: [{
+                                id: 'overview-' + Date.now(),
+                                text: ai_overview,
+                                isUser: false,
+                                timestamp: new Date().toISOString()
+                            }]
+                        });
+                    } else {
+                        // Fallback: still store message so ChatScreen opens with it
+                        await saveActiveChat({
+                            idChat: null,
+                            messages: [{
+                                id: 'overview-' + Date.now(),
+                                text: ai_overview,
+                                isUser: false,
+                                timestamp: new Date().toISOString()
+                            }]
+                        });
+                    }
+                } catch (e) {
+                    console.log('[Upload] Falha ao persistir chat inicial', e);
+                }
                 setNavigatingToChat(true);
                 setTimeout(() => {
-                    onNavigateToChat(response.data.ai_overview);
-                }, 1500);
+                    // Navigate without an initialMessage so ChatScreen hydrates from storage (keeping id_chat & titulo)
+                    onNavigateToChat();
+                }, 800);
             }
         } catch (error: any) {
             console.log('[Upload] Erro bruto', error?.message, error?.response?.status, error?.response?.data);
@@ -249,6 +283,12 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
                                 )}
                                 {success.observation && (
                                     <Text style={styles.successText}>Obs: {success.observation}</Text>
+                                )}
+                                {success.titulo && (
+                                    <Text style={styles.successText}>Título do Chat: {success.titulo}</Text>
+                                )}
+                                {typeof success.id_chat === 'number' && (
+                                    <Text style={styles.successText}>ID do Chat: {success.id_chat}</Text>
                                 )}
                                 {success.ai_overview && (
                                     <Text style={styles.successText}>AI: {success.ai_overview}</Text>

@@ -1,6 +1,7 @@
 import {
     ActivityIndicator,
     Animated,
+    Easing,
     FlatList,
     Keyboard,
     Platform,
@@ -13,7 +14,8 @@ import {
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
-import { sendChatMessage, endChat } from '../../services/api/chat';
+import { sendChatMessage } from '../../services/api/chat';
+import { loadActiveChat, saveActiveChat, clearActiveChat } from '../../services/storage/chatStorage';
 
 type Props = { initialMessage?: string; onChatTitleResolved?: (title: string) => void; onChatActiveChange?: (active: boolean, idChat?: number) => void };
 
@@ -99,6 +101,33 @@ function ChatMarkdown({text, style, animateWords}: { text: string; style: any; a
     return <Markdown style={style} rules={rules}>{text}</Markdown>;
 }
 
+// Refined grey spinner to match app style
+const GreySpinner: React.FC<{ size?: number; thickness?: number; color?: string }> = ({ size = 28, thickness = 3, color = '#9AA3AF' }) => {
+    const rotate = React.useRef(new Animated.Value(0)).current;
+    React.useEffect(() => {
+        const loop = Animated.loop(
+            Animated.timing(rotate, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true })
+        );
+        loop.start();
+        return () => rotate.stopAnimation();
+    }, [rotate]);
+    const spin = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+    const baseColor = '#E5E7EB';
+    return (
+        <Animated.View style={{ transform: [{ rotate: spin }] }}>
+            <View style={{
+                width: size,
+                height: size,
+                borderRadius: size / 2,
+                borderWidth: thickness,
+                borderColor: baseColor,
+                borderTopColor: color,
+                borderRightColor: color
+            }} />
+        </Animated.View>
+    );
+};
+
 export default function ChatScreen({initialMessage, onChatTitleResolved, onChatActiveChange}: Props) {
     const insets = useSafeAreaInsets();
     const [messages, setMessages] = useState<Message[]>([]);
@@ -108,23 +137,95 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
     const [idChat, setIdChat] = useState<number | null>(null);
     const idChatRef = useRef<number | null>(null);
     const [titleStored, setTitleStored] = useState(false);
+    const [title, setTitle] = useState<string | undefined>(undefined);
+    const [hydrated, setHydrated] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
-        const welcomeMessage: Message = {
-            id: 'welcome-' + Date.now(),
-            text: initialMessage || 'Olá! Como posso ajudá-lo hoje?',
-            isUser: false,
-            timestamp: new Date()
-        };
-        setMessages([welcomeMessage]);
-    }, [initialMessage]);
+        let mounted = true;
+        (async () => {
+            try {
+                if (initialMessage != null && initialMessage !== '') {
+                    // New chat forced by initial message
+                    await clearActiveChat();
+                    if (!mounted) return;
+                    const welcomeMessage: Message = {
+                        id: 'welcome-' + Date.now(),
+                        text: initialMessage,
+                        isUser: false,
+                        timestamp: new Date()
+                    };
+                    setMessages([welcomeMessage]);
+                    setHydrated(true);
+                    return;
+                }
+                const persisted = await loadActiveChat();
+                if (persisted && mounted) {
+                    setIdChat(persisted.idChat);
+                    idChatRef.current = persisted.idChat;
+                    if (persisted.title) {
+                        setTitle(persisted.title);
+                        setTitleStored(true);
+                        onChatTitleResolved?.(persisted.title);
+                    }
+                    const restored: Message[] = (persisted.messages || []).map(m => ({
+                        id: m.id,
+                        text: m.text,
+                        isUser: m.isUser,
+                        timestamp: new Date(m.timestamp)
+                    }));
+                    if (restored.length > 0) {
+                        setMessages(restored);
+                        setHydrated(true);
+                        return;
+                    }
+                }
+                if (mounted) {
+                    // No persisted chat; show default welcome
+                    const welcomeMessage: Message = {
+                        id: 'welcome-' + Date.now(),
+                        text: initialMessage || 'Olá! Como posso ajudá-lo hoje?',
+                        isUser: false,
+                        timestamp: new Date()
+                    };
+                    setMessages([welcomeMessage]);
+                    setHydrated(true);
+                }
+            } catch (e) {
+                if (__DEV__) console.error('Falha ao hidratar chat:', e);
+                if (mounted) {
+                    const welcomeMessage: Message = {
+                        id: 'welcome-' + Date.now(),
+                        text: initialMessage || 'Olá! Como posso ajudá-lo hoje?',
+                        isUser: false,
+                        timestamp: new Date()
+                    };
+                    setMessages([welcomeMessage]);
+                    setHydrated(true);
+                }
+            }
+        })();
+        return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const scrollToBottom = useCallback(() => {
         setTimeout(() => {
             flatListRef.current?.scrollToEnd({animated: true});
         }, 100);
     }, []);
+
+    // Persist chat state whenever messages, idChat, or title change
+    useEffect(() => {
+        if (!hydrated) return;
+        const toPersist = {
+            idChat,
+            messages: messages.map(m => ({ id: m.id, text: m.text, isUser: m.isUser, timestamp: m.timestamp.toISOString() })),
+            title
+        };
+        saveActiveChat(toPersist).catch(() => {});
+    }, [messages, idChat, title, hydrated]);
+
     const sendMessage = useCallback(async () => {
         if (!inputText.trim() || loading) return;
         const contentToSend = inputText.trim();
@@ -144,6 +245,7 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
             }
             if (!titleStored && data?.titulo) {
                 setTitleStored(true);
+                setTitle(data.titulo);
                 onChatTitleResolved?.(data.titulo);
             }
 
@@ -206,14 +308,21 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
 
     useEffect(() => {
         return () => {
-            const id = idChatRef.current;
-            if (id != null) {
-                // Best-effort end chat when leaving screen
-                endChat(id).catch(() => {});
-            }
+            // Do not end chat automatically on unmount; only notify inactive for UI
             onChatActiveChange?.(false);
         };
     }, [onChatActiveChange]);
+
+    if (!hydrated) {
+        return (
+            <View style={[styles.container, styles.centeredHydrate]}>
+                <View style={styles.hydrateWrap}>
+                    <GreySpinner size={28} thickness={3} color={'#9AA3AF'} />
+                    <Text style={styles.hydrateText}>Carregando mensagens…</Text>
+                </View>
+            </View>
+        );
+    }
 
     return (<View
             style={[styles.container, {paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0}]}>
@@ -278,6 +387,9 @@ const markdownStyles = {
 
 const styles = StyleSheet.create({
     container: {flex: 1, backgroundColor: '#ffffff'},
+    centeredHydrate: { justifyContent: 'center', alignItems: 'center' },
+    hydrateWrap: { alignItems: 'center', gap: 8 },
+    hydrateText: { marginTop: 6, fontSize: 13, color: '#4a5a6a' },
     content: {flex: 1},
     messagesList: {flex: 1, paddingHorizontal: 16},
     messagesContent: {paddingVertical: 16},
