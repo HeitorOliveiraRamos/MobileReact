@@ -5,8 +5,6 @@
   "scripts": {
     "start": "react-native start",
     "android": "react-native run-android",
-    "android:release": "react-native run-android --variant=release",
-    "clean:android": "cd android && gradlew clean",
     "doctor": "react-native doctor"
   },
   "dependencies": {
