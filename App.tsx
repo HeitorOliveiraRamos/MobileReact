@@ -29,6 +29,9 @@ function App() {
     const [hydrated, setHydrated] = useState(false);
     const [screen, setScreen] = useState<AppScreen>('menu');
     const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
+    const [chatTitle, setChatTitle] = useState<string | undefined>(undefined);
+    const [activeChatId, setActiveChatId] = useState<number | null>(null);
+    const [chatSessionKey, setChatSessionKey] = useState(0);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const sidebarWidth = useRef(new Animated.Value(SIDEBAR_CLOSED_WIDTH)).current;
 
@@ -122,6 +125,14 @@ function App() {
         }, {text: 'Sair', style: 'destructive', onPress: handleLogout},]);
     }, [handleLogout]);
 
+    const handleNewChatPress = useCallback(async () => {
+        // Rely on ChatScreen unmount to send PUT (end chat), then refresh
+        setChatTitle(undefined);
+        setChatInitialMessage(undefined);
+        setActiveChatId(null);
+        setChatSessionKey(k => k + 1);
+    }, []);
+
     const safeEdges = screen === 'chat' ? (['top', 'right', 'left'] as const) : (['top', 'right', 'left', 'bottom'] as const);
 
     if (!hydrated) {
@@ -139,7 +150,8 @@ function App() {
     }
     const arrowIcon = sidebarOpen ? '‹' : '›';
     const iconSource = require('./src/assets/icon.png');
-    const headerTitle = screen === 'menu' ? 'Tecno Tooling' : screen === 'sendFile' ? 'Enviar Arquivo' : 'Chat IA';
+    const headerTitle = screen === 'menu' ? 'Tecno Tooling' : screen === 'sendFile' ? 'Enviar Arquivo' : (chatTitle ?? 'Chat IA');
+
 
     return (<SafeAreaView edges={safeEdges} style={styles.safeAreaWhite}>
             <StatusBar translucent={false} backgroundColor={'#122033'} barStyle={'dark-content'}/>
@@ -170,6 +182,7 @@ function App() {
                     <TouchableOpacity
                         onPress={() => {
                             setChatInitialMessage(undefined);
+                            setChatTitle(undefined);
                             setScreen('chat');
                             if (sidebarOpen) closeSidebar();
                         }}
@@ -203,8 +216,13 @@ function App() {
             {sidebarOpen && (<TouchableOpacity style={[styles.overlay, {top: 0, bottom: 0}]} onPress={closeSidebar}
                                                activeOpacity={1}/>)}
             <View style={[styles.mainArea, {marginLeft: SIDEBAR_CLOSED_WIDTH, paddingBottom: screen === 'chat' ? 0 : insets.bottom}]}>
-                <View style={styles.header}>
+                <View style={[styles.header, {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}]}>
                     <Text style={styles.appName}>{headerTitle}</Text>
+                    {screen === 'chat' && activeChatId != null && (
+                        <TouchableOpacity onPress={handleNewChatPress} activeOpacity={0.8} style={styles.newChatBtn}>
+                            <Text style={styles.newChatBtnText}>+</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
                 <View style={[styles.mainContentWrapper, screen === 'chat' && {padding: 0}]}>
                     {screen === 'menu' && (<View style={styles.brandContainer}>
@@ -213,11 +231,19 @@ function App() {
                     {screen === 'sendFile' && (<SendFileScreen
                         onNavigateToChat={(initialMessage) => {
                             setChatInitialMessage(initialMessage);
+                            setChatTitle(undefined);
+                            setActiveChatId(null);
+                            setChatSessionKey(k => k + 1);
                             setScreen('chat');
                         }}
                     />)}
                     {screen === 'chat' && (<ChatScreen
+                        key={chatSessionKey}
                         initialMessage={chatInitialMessage}
+                        onChatTitleResolved={(title) => { if (!chatTitle) setChatTitle(title); }}
+                        onChatActiveChange={(active, id) => {
+                            setActiveChatId(active ? (id ?? null) : null);
+                        }}
                     />)}
                 </View>
             </View>
@@ -298,7 +324,16 @@ const styles = StyleSheet.create({
     menuIcon: {color: '#fff', fontSize: 18, fontWeight: '600'},
     overlay: {
         position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 900
-    }
+    },
+    newChatBtn: {
+        backgroundColor: '#007AFF',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    newChatBtnText: { color: '#fff', fontSize: 22, fontWeight: '700', lineHeight: 24 }
 });
 
 export default App;

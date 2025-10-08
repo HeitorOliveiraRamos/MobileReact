@@ -12,10 +12,10 @@ import {
 } from 'react-native';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {api} from '../../services/api/client';
 import Markdown from 'react-native-markdown-display';
+import { sendChatMessage, endChat } from '../../services/api/chat';
 
-type Props = { initialMessage?: string };
+type Props = { initialMessage?: string; onChatTitleResolved?: (title: string) => void; onChatActiveChange?: (active: boolean, idChat?: number) => void };
 
 type Message = { id: string; text: string; isUser: boolean; timestamp: Date; isAnimating?: boolean };
 
@@ -99,12 +99,15 @@ function ChatMarkdown({text, style, animateWords}: { text: string; style: any; a
     return <Markdown style={style} rules={rules}>{text}</Markdown>;
 }
 
-export default function ChatScreen({initialMessage}: Props) {
+export default function ChatScreen({initialMessage, onChatTitleResolved, onChatActiveChange}: Props) {
     const insets = useSafeAreaInsets();
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(false);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [idChat, setIdChat] = useState<number | null>(null);
+    const idChatRef = useRef<number | null>(null);
+    const [titleStored, setTitleStored] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
@@ -124,22 +127,33 @@ export default function ChatScreen({initialMessage}: Props) {
     }, []);
     const sendMessage = useCallback(async () => {
         if (!inputText.trim() || loading) return;
-        const userMessage: Message = {
-            id: Date.now().toString(), text: inputText.trim(), isUser: true, timestamp: new Date()
+        const contentToSend = inputText.trim();
+        const localUserMessage: Message = {
+            id: Date.now().toString(), text: contentToSend, isUser: true, timestamp: new Date()
         };
-        setMessages(prev => [...prev, userMessage]);
+        setMessages(prev => [...prev, localUserMessage]);
         setInputText('');
         setLoading(true);
         scrollToBottom();
         try {
-            const response = await api.post('/chat/message', {message: userMessage.text});
-            const aiMessage: Message = {
+            const payload = idChat != null ? { id_chat: idChat, conteudo: contentToSend } : { conteudo: contentToSend };
+            const data = await sendChatMessage(payload);
+
+            if (data && typeof data.id_chat === 'number' && idChat == null) {
+                setIdChat(data.id_chat);
+            }
+            if (!titleStored && data?.titulo) {
+                setTitleStored(true);
+                onChatTitleResolved?.(data.titulo);
+            }
+
+            const responseMessage: Message = {
                 id: (Date.now() + 1).toString(),
-                text: response.data.response || 'Desculpe, não consegui processar sua mensagem.',
-                isUser: false,
+                text: data?.conteudo ?? 'Desculpe, não consegui processar sua mensagem.',
+                isUser: (data?.tipo || 'A') === 'U',
                 timestamp: new Date()
             };
-            setMessages(prev => [...prev, aiMessage]);
+            setMessages(prev => [...prev, responseMessage]);
             scrollToBottom();
         } catch (error: any) {
             const errorMessage: Message = {
@@ -154,7 +168,7 @@ export default function ChatScreen({initialMessage}: Props) {
             setLoading(false);
             scrollToBottom();
         }
-    }, [inputText, loading, scrollToBottom]);
+    }, [inputText, loading, scrollToBottom, idChat, titleStored, onChatTitleResolved]);
 
     const renderMessage = useCallback(({item}: { item: Message }) => (
         <View style={[styles.messageContainer, item.isUser ? styles.userMessage : styles.aiMessage]}>
@@ -184,6 +198,22 @@ export default function ChatScreen({initialMessage}: Props) {
             hideSub.remove();
         };
     }, [scrollToBottom]);
+
+    useEffect(() => {
+        idChatRef.current = idChat;
+        if (idChat != null) onChatActiveChange?.(true, idChat);
+    }, [idChat, onChatActiveChange]);
+
+    useEffect(() => {
+        return () => {
+            const id = idChatRef.current;
+            if (id != null) {
+                // Best-effort end chat when leaving screen
+                endChat(id).catch(() => {});
+            }
+            onChatActiveChange?.(false);
+        };
+    }, [onChatActiveChange]);
 
     return (<View
             style={[styles.container, {paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0}]}>
