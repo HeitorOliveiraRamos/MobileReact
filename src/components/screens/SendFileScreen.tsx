@@ -24,8 +24,8 @@ type ValidationError = { field: string; message: string };
 type UploadSuccess = {
     id_file: number;
     ai_overview: string;
-    id_chat?: number; // new from API
-    titulo?: string;  // new from API
+    id_chat?: number;
+    titulo?: string;
     file_name?: string;
     file_type?: string;
     observation?: string | null;
@@ -132,7 +132,6 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
             setFile(null);
             setObservation('');
 
-            // If API returned AI overview and chat identifiers, seed the active chat in storage
             const { ai_overview, id_chat, titulo } = response.data as UploadSuccess;
             if (ai_overview) {
                 try {
@@ -148,7 +147,6 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
                             }]
                         });
                     } else {
-                        // Fallback: still store message so ChatScreen opens with it
                         await saveActiveChat({
                             idChat: null,
                             messages: [{
@@ -164,7 +162,6 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
                 }
                 setNavigatingToChat(true);
                 setTimeout(() => {
-                    // Navigate without an initialMessage so ChatScreen hydrates from storage (keeping id_chat & titulo)
                     onNavigateToChat();
                 }, 800);
             }

@@ -6,7 +6,7 @@ export type PersistedMessage = {
   id: string;
   text: string;
   isUser: boolean;
-  timestamp: string; // ISO string
+  timestamp: string;
 };
 
 export type ChatPersistedState = {

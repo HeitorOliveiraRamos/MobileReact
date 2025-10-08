@@ -101,7 +101,6 @@ function ChatMarkdown({text, style, animateWords}: { text: string; style: any; a
     return <Markdown style={style} rules={rules}>{text}</Markdown>;
 }
 
-// Refined grey spinner to match app style
 const GreySpinner: React.FC<{ size?: number; thickness?: number; color?: string }> = ({ size = 28, thickness = 3, color = '#9AA3AF' }) => {
     const rotate = React.useRef(new Animated.Value(0)).current;
     React.useEffect(() => {
@@ -146,7 +145,6 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
         (async () => {
             try {
                 if (initialMessage != null && initialMessage !== '') {
-                    // New chat forced by initial message
                     await clearActiveChat();
                     if (!mounted) return;
                     const welcomeMessage: Message = {
@@ -181,7 +179,6 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
                     }
                 }
                 if (mounted) {
-                    // No persisted chat; show default welcome
                     const welcomeMessage: Message = {
                         id: 'welcome-' + Date.now(),
                         text: initialMessage || 'Olá! Como posso ajudá-lo hoje?',
@@ -206,7 +203,6 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
             }
         })();
         return () => { mounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const scrollToBottom = useCallback(() => {
@@ -215,7 +211,6 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
         }, 100);
     }, []);
 
-    // Persist chat state whenever messages, idChat, or title change
     useEffect(() => {
         if (!hydrated) return;
         const toPersist = {
@@ -308,7 +303,6 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
 
     useEffect(() => {
         return () => {
-            // Do not end chat automatically on unmount; only notify inactive for UI
             onChatActiveChange?.(false);
         };
     }, [onChatActiveChange]);

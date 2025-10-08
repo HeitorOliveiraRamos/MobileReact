@@ -1,4 +1,3 @@
-// filepath: c:\Users\heito\WebstormProjects\Mobile2\src\services\api\chat.ts
 import { api } from './client';
 import { API_TIMEOUT } from './config';
 
@@ -11,7 +10,7 @@ export type ChatMessageRequest =
 export type ChatMessageResponse = {
   id_chat: number;
   conteudo: string;
-  titulo?: string; // Can be present in the first response
+  titulo?: string;
   tipo: ChatTipo;
 };
 
@@ -21,6 +20,5 @@ export async function sendChatMessage(body: ChatMessageRequest) {
 }
 
 export async function endChat(id_chat: number) {
-  // best-effort termination; return void
   await api.put('/usuario/chat', { id_chat, ativo: false });
 }

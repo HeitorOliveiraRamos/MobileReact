@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     passwordInput: {
-        paddingRight: 44, // space for the toggle button
+        paddingRight: 44,
         marginBottom: 0,
     },
     togglePasswordWrapper: {

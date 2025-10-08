@@ -126,7 +126,6 @@ function App() {
     }, []);
 
     const confirmLogout = useCallback(() => {
-        // Open custom modal instead of system Alert
         setLogoutPopupVisible(true);
     }, []);
 
@@ -136,13 +135,11 @@ function App() {
     }, [handleLogout]);
 
     const handleNewChatPress = useCallback(async () => {
-        // Explicitly end current chat (if any), clear persisted chat, then start a fresh session
         try {
             if (activeChatId != null) {
                 await endChat(activeChatId);
             }
         } catch (e) {
-            // best-effort; ignore errors
         } finally {
             await clearActiveChat();
             setChatTitle(undefined);
@@ -250,7 +247,6 @@ function App() {
                                 ellipsizeMode="tail"
                                 onTextLayout={(e) => {
                                     const first = e.nativeEvent.lines?.[0]?.text ?? '';
-                                    // RN usa o caractere de reticências “…” quando truncado
                                     setTitleIsTruncated(first.includes('…'));
                                 }}
                             >
