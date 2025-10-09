@@ -41,7 +41,6 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
     const [success, setSuccess] = useState<UploadSuccess | null>(null);
     const [navigatingToChat, setNavigatingToChat] = useState(false);
     const [connectivityStatus, setConnectivityStatus] = useState<string | null>(null);
-    const testingConnRef = useRef(false);
     const animatedValue = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {

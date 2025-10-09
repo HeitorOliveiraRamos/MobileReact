@@ -16,9 +16,9 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {login} from '../../services/api/auth';
-import {setToken as persistToken} from '../../services/storage/tokenStorage';
+import {setToken as persistToken, setNome as persistNome} from '../../services/storage/tokenStorage';
 
-type Props = { onSuccess: (token: string) => void };
+type Props = { onSuccess: (token: string, nome: string) => void };
 
 export default function LoginScreen({onSuccess}: Props) {
     const [usuario, setUsuario] = useState('');
@@ -45,9 +45,10 @@ export default function LoginScreen({onSuccess}: Props) {
         setLoading(true);
         setError(null);
         try {
-            const token = await login(usuario.trim(), senha);
+            const { token, nome } = await login(usuario.trim(), senha);
             await persistToken(token);
-            onSuccess(token);
+            await persistNome(nome ?? '');
+            onSuccess(token, nome ?? '');
         } catch (e: any) {
             const message = e?.response?.data?.message || e?.message || 'Falha no login. Verifique suas credenciais.';
             setError(message);

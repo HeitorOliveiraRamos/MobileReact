@@ -16,8 +16,9 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
 import { sendChatMessage } from '../../services/api/chat';
 import { loadActiveChat, saveActiveChat, clearActiveChat } from '../../services/storage/chatStorage';
+import { useHeaderTitle } from '../header/HeaderTitleContext';
 
-type Props = { initialMessage?: string; onChatTitleResolved?: (title: string) => void; onChatActiveChange?: (active: boolean, idChat?: number) => void };
+type Props = { initialMessage?: string; onChatActiveChange?: (active: boolean, idChat?: number) => void };
 
 type Message = { id: string; text: string; isUser: boolean; timestamp: Date; isAnimating?: boolean };
 
@@ -127,8 +128,9 @@ const GreySpinner: React.FC<{ size?: number; thickness?: number; color?: string 
     );
 };
 
-export default function ChatScreen({initialMessage, onChatTitleResolved, onChatActiveChange}: Props) {
+export default function ChatScreen({initialMessage, onChatActiveChange}: Props) {
     const insets = useSafeAreaInsets();
+    const { setTitle: setHeaderTitle } = useHeaderTitle();
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(false);
@@ -154,6 +156,8 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
                         timestamp: new Date()
                     };
                     setMessages([welcomeMessage]);
+                    // default header for fresh chat started from file
+                    setHeaderTitle('Chat IA');
                     setHydrated(true);
                     return;
                 }
@@ -164,7 +168,9 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
                     if (persisted.title) {
                         setTitle(persisted.title);
                         setTitleStored(true);
-                        onChatTitleResolved?.(persisted.title);
+                        setHeaderTitle(persisted.title);
+                    } else {
+                        setHeaderTitle('Chat IA');
                     }
                     const restored: Message[] = (persisted.messages || []).map(m => ({
                         id: m.id,
@@ -186,6 +192,7 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
                         timestamp: new Date()
                     };
                     setMessages([welcomeMessage]);
+                    setHeaderTitle('Chat IA');
                     setHydrated(true);
                 }
             } catch (e) {
@@ -198,6 +205,7 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
                         timestamp: new Date()
                     };
                     setMessages([welcomeMessage]);
+                    setHeaderTitle('Chat IA');
                     setHydrated(true);
                 }
             }
@@ -241,7 +249,7 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
             if (!titleStored && data?.titulo) {
                 setTitleStored(true);
                 setTitle(data.titulo);
-                onChatTitleResolved?.(data.titulo);
+                setHeaderTitle(data.titulo);
             }
 
             const responseMessage: Message = {
@@ -265,7 +273,7 @@ export default function ChatScreen({initialMessage, onChatTitleResolved, onChatA
             setLoading(false);
             scrollToBottom();
         }
-    }, [inputText, loading, scrollToBottom, idChat, titleStored, onChatTitleResolved]);
+    }, [inputText, loading, scrollToBottom, idChat, titleStored, setHeaderTitle]);
 
     const renderMessage = useCallback(({item}: { item: Message }) => (
         <View style={[styles.messageContainer, item.isUser ? styles.userMessage : styles.aiMessage]}>
