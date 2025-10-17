@@ -45,7 +45,7 @@ export default function Sidebar({
       {/* User section */}
       {open && !!nome && (
         <View style={styles.sidebarUserSection}>
-          <Text style={styles.greetingTextLarge} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={styles.greetingTextLarge}>
             Olá, {nome}!
           </Text>
         </View>
