@@ -204,7 +204,7 @@ function App() {
                 setHydrated(true);
             }
         };
-        initializeApp();
+        initializeApp().then();
     }, []);
 
     useEffect(() => {
@@ -216,7 +216,7 @@ function App() {
             if (nextAppState === 'active' && token) {
                 const storedToken = await getToken();
                 if (!storedToken || !isTokenValid(storedToken)) {
-                    handleLogout();
+                    await handleLogout();
                 }
             }
         };
