@@ -13,6 +13,7 @@ export type ChatPersistedState = {
   idChat: number | null;
   messages: PersistedMessage[];
   title?: string;
+  quickQuestions?: string[];
 };
 
 export async function loadActiveChat(): Promise<ChatPersistedState | null> {
@@ -43,4 +44,3 @@ export async function clearActiveChat(): Promise<void> {
     if (__DEV__) console.warn('Failed to clear active chat state:', e);
   }
 }
-

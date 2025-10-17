@@ -1,7 +1,6 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Animated,
     Platform,
     ScrollView,
@@ -16,6 +15,8 @@ import {api} from '../../services/api/client';
 import {API_BASE_URL} from '../../services/api/config';
 import {errorCodes, isErrorWithCode, pick as pickDocument, types as DocTypes} from '@react-native-documents/picker';
 import { saveActiveChat } from '../../services/storage/chatStorage';
+import { useChatInFlight } from '../../services/api/chatBusy';
+import { ErrorModalContext } from '../ErrorModalContext';
 
 type Props = { onNavigateToChat: (initialMessage?: string) => void };
 
@@ -42,6 +43,8 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
     const [navigatingToChat, setNavigatingToChat] = useState(false);
     const [connectivityStatus, setConnectivityStatus] = useState<string | null>(null);
     const animatedValue = useRef(new Animated.Value(0)).current;
+    const chatBusy = useChatInFlight();
+    const showErrorModal = useContext(ErrorModalContext)?.showErrorModal;
 
     useEffect(() => {
         if (errors || success) {
@@ -49,11 +52,12 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
         }
     }, [errors, success, animatedValue]);
 
-    const canSubmit = useMemo(() => file !== null && !loading, [file, loading]);
+    const canSubmit = useMemo(() => file !== null && !loading && !chatBusy, [file, loading, chatBusy]);
 
     const handlePickFile = useCallback(async () => {
+        if (chatBusy) return;
         if (typeof pickDocument !== 'function') {
-            Alert.alert('Document Picker indisponível', 'A função pick não está disponível.');
+            showErrorModal?.('Document Picker indisponível', 'A função pick não está disponível.');
             return;
         }
         try {
@@ -72,9 +76,9 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
         } catch (err: any) {
             if (isErrorWithCode?.(err) && err.code === errorCodes.OPERATION_CANCELED) return;
             console.log('[DocumentPicker] erro seleção', err);
-            Alert.alert('Erro', 'Falha ao selecionar arquivo');
+            showErrorModal?.('Erro', 'Falha ao selecionar arquivo');
         }
-    }, [pickDocument]);
+    }, [pickDocument, chatBusy]);
 
     const handleSubmit = useCallback(async () => {
         if (!canSubmit || !file) return;
@@ -167,19 +171,12 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
         } catch (error: any) {
             console.log('[Upload] Erro bruto', error?.message, error?.response?.status, error?.response?.data);
             if (error?.response?.status === 400) {
-                if (error?.response?.data?.errors) setErrors(error.response.data.errors); else Alert.alert('Erro de Validação', 'Os dados enviados não estão no formato correto.');
-            } else if (error?.response?.status === 404) Alert.alert('Recurso não encontrado', 'Endpoint de upload ausente.');
-            else if (error?.response?.status === 401) Alert.alert('Erro de Autenticação', 'Sessão expirada.');
-            else if (error?.response?.status === 403) Alert.alert('Acesso Negado', 'Sem permissão para upload.');
-            else if (error?.response?.status === 413) Alert.alert('Arquivo muito grande', 'Tamanho excede o máximo permitido.');
-            else if (error?.response?.status === 415) Alert.alert('Tipo não suportado', 'Tipo de arquivo não suportado.');
-            else if (error?.response?.status >= 500) Alert.alert('Erro do Servidor', 'Tente novamente mais tarde.');
-            else if (!error?.response) {
+                if (error?.response?.data?.errors) {
+                    setErrors(error.response.data.errors);
+                }
+            } else if (!error?.response) {
                 const applied = attemptHostFallback();
-                Alert.alert('Erro de Conexão', `Não foi possível conectar.\nHost: ${API_BASE_URL}\n${applied ? 'Fallback aplicado.' : 'Verifique a API.'}`);
-            } else {
-                const message = error?.response?.data?.message || error?.message || 'Erro desconhecido';
-                Alert.alert('Erro', message);
+                showErrorModal?.('Erro de Conexão', `Não foi possível conectar.\nHost: ${API_BASE_URL}\n${applied ? 'Fallback aplicado.' : 'Verifique a API.'}`);
             }
         } finally {
             setLoading(false);
@@ -223,9 +220,9 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Selecionar Arquivo</Text>
                     <TouchableOpacity
-                        style={[styles.filePicker, file && styles.filePickerSelected]}
+                        style={[styles.filePicker, file && styles.filePickerSelected, (loading || chatBusy) && {opacity: 0.6}]}
                         onPress={handlePickFile}
-                        disabled={loading}
+                        disabled={loading || chatBusy}
                     >
                         <Text style={[styles.filePickerText, file && styles.filePickerTextSelected]}>
                             {file ? file.name : 'Toque para selecionar arquivo'}
@@ -244,7 +241,7 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
                     <TextInput
                         style={[styles.textArea, getErrorForField('observation') && styles.inputError]}
                         placeholder="Adicione observações sobre o arquivo..." multiline numberOfLines={4}
-                        value={observation} onChangeText={setObservation} editable={!loading}
+                        value={observation} onChangeText={setObservation} editable={!loading && !chatBusy}
                         textAlignVertical="top"
                     />
                     {getErrorForField('observation') && (
@@ -305,12 +302,12 @@ export default function SendFileScreen({onNavigateToChat}: Props) {
                     style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
                     onPress={handleSubmit}
                     disabled={!canSubmit}
-                    activeOpacity={0.8}
+                    activeOpacity={canSubmit ? 0.8 : 1}
                 >
                     {loading ? (
                         <ActivityIndicator color="white"/>
                     ) : (
-                        <Text style={styles.submitButtonText}>Enviar Arquivo</Text>
+                        <Text style={styles.submitButtonText}>{chatBusy ? 'Aguardando resposta do chat…' : 'Enviar Arquivo'}</Text>
                     )}
                 </TouchableOpacity>
             </ScrollView>

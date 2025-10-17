@@ -1,7 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
     ActivityIndicator,
-    Alert,
     StyleSheet,
     Text,
     TextInput,
@@ -52,8 +51,6 @@ export default function LoginScreen({onSuccess}: Props) {
         } catch (e: any) {
             const message = e?.response?.data?.message || e?.message || 'Falha no login. Verifique suas credenciais.';
             setError(message);
-            if (__DEV__) console.warn('Erro de login:', message);
-            Alert.alert('Erro', message);
         } finally {
             setLoading(false);
         }

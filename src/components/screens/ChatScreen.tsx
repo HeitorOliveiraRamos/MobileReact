@@ -9,14 +9,16 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    ScrollView
 } from 'react-native';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
-import { sendChatMessage } from '../../services/api/chat';
 import { loadActiveChat, saveActiveChat, clearActiveChat } from '../../services/storage/chatStorage';
 import { useHeaderTitle } from '../header/HeaderTitleContext';
+import { startChatRequest, endChatRequest, updateChatInFlightId } from '../../services/api/chatBusy';
+import { sendMessagePersisting } from '../../services/chat/flow';
 
 type Props = { initialMessage?: string; onChatActiveChange?: (active: boolean, idChat?: number) => void };
 
@@ -140,7 +142,9 @@ export default function ChatScreen({initialMessage, onChatActiveChange}: Props) 
     const [titleStored, setTitleStored] = useState(false);
     const [title, setTitle] = useState<string | undefined>(undefined);
     const [hydrated, setHydrated] = useState(false);
+    const [quickQuestions, setQuickQuestions] = useState<string[]>([]);
     const flatListRef = useRef<FlatList>(null);
+    const busy = loading;
 
     useEffect(() => {
         let mounted = true;
@@ -156,7 +160,6 @@ export default function ChatScreen({initialMessage, onChatActiveChange}: Props) 
                         timestamp: new Date()
                     };
                     setMessages([welcomeMessage]);
-                    // default header for fresh chat started from file
                     setHeaderTitle('Chat IA');
                     setHydrated(true);
                     return;
@@ -178,6 +181,7 @@ export default function ChatScreen({initialMessage, onChatActiveChange}: Props) 
                         isUser: m.isUser,
                         timestamp: new Date(m.timestamp)
                     }));
+                    setQuickQuestions(persisted.quickQuestions || []);
                     if (restored.length > 0) {
                         setMessages(restored);
                         setHydrated(true);
@@ -224,33 +228,38 @@ export default function ChatScreen({initialMessage, onChatActiveChange}: Props) 
         const toPersist = {
             idChat,
             messages: messages.map(m => ({ id: m.id, text: m.text, isUser: m.isUser, timestamp: m.timestamp.toISOString() })),
-            title
+            title,
+            quickQuestions
         };
         saveActiveChat(toPersist).catch(() => {});
-    }, [messages, idChat, title, hydrated]);
+    }, [messages, idChat, title, quickQuestions, hydrated]);
 
-    const sendMessage = useCallback(async () => {
-        if (!inputText.trim() || loading) return;
-        const contentToSend = inputText.trim();
+    const sendMessage = useCallback(async (overrideText?: string) => {
+        const textToSend = (overrideText ?? inputText).trim();
+        if (!textToSend || loading) return;
         const localUserMessage: Message = {
-            id: Date.now().toString(), text: contentToSend, isUser: true, timestamp: new Date()
+            id: Date.now().toString(), text: textToSend, isUser: true, timestamp: new Date()
         };
         setMessages(prev => [...prev, localUserMessage]);
-        setInputText('');
+        if (!overrideText) setInputText('');
         setLoading(true);
+        startChatRequest(idChat);
         scrollToBottom();
         try {
-            const payload = idChat != null ? { id_chat: idChat, conteudo: contentToSend } : { conteudo: contentToSend };
-            const data = await sendChatMessage(payload);
+            const data = await sendMessagePersisting({ idChat, text: textToSend });
 
             if (data && typeof data.id_chat === 'number' && idChat == null) {
                 setIdChat(data.id_chat);
+                updateChatInFlightId(data.id_chat);
             }
             if (!titleStored && data?.titulo) {
                 setTitleStored(true);
                 setTitle(data.titulo);
                 setHeaderTitle(data.titulo);
             }
+
+            const nextQuick = (data?.perguntas_rapidas || []).map(p => p.pergunta).filter(Boolean);
+            setQuickQuestions(nextQuick);
 
             const responseMessage: Message = {
                 id: (Date.now() + 1).toString(),
@@ -271,6 +280,7 @@ export default function ChatScreen({initialMessage, onChatActiveChange}: Props) 
             if (__DEV__) console.error('Erro no chat:', error);
         } finally {
             setLoading(false);
+            endChatRequest();
             scrollToBottom();
         }
     }, [inputText, loading, scrollToBottom, idChat, titleStored, setHeaderTitle]);
@@ -315,6 +325,11 @@ export default function ChatScreen({initialMessage, onChatActiveChange}: Props) 
         };
     }, [onChatActiveChange]);
 
+    const onPressQuick = useCallback((q: string) => {
+        if (!q || busy) return;
+        sendMessage(q);
+    }, [sendMessage, busy]);
+
     if (!hydrated) {
         return (
             <View style={[styles.container, styles.centeredHydrate]}>
@@ -338,6 +353,18 @@ export default function ChatScreen({initialMessage, onChatActiveChange}: Props) 
                 onContentSizeChange={scrollToBottom}
                 keyboardShouldPersistTaps="handled"
             />
+            {/* Quick questions chips */}
+            {quickQuestions.length > 0 && (
+                <View style={styles.quickRowContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
+                        {quickQuestions.map((q, idx) => (
+                            <TouchableOpacity key={`qq-${idx}`} style={[styles.quickChip, busy && {opacity: 0.6}]} onPress={() => onPressQuick(q)} activeOpacity={busy ? 1 : 0.8} disabled={busy}>
+                                <Text style={styles.quickChipText}>{q}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
             <View
                 style={[styles.inputContainer, {paddingBottom: insets.bottom + 12}]}
             >
@@ -349,17 +376,17 @@ export default function ChatScreen({initialMessage, onChatActiveChange}: Props) 
                     onChangeText={setInputText}
                     multiline
                     maxLength={500}
-                    editable={!loading}
-                    onSubmitEditing={sendMessage}
+                    editable={!busy}
+                    onSubmitEditing={() => sendMessage()}
                     returnKeyType="send"
                 />
                 <TouchableOpacity
-                    style={[styles.sendButton, (!inputText.trim() || loading) && styles.sendButtonDisabled]}
-                    onPress={sendMessage}
-                    disabled={!inputText.trim() || loading}
-                    activeOpacity={0.8}
+                    style={[styles.sendButton, (!inputText.trim() || busy) && styles.sendButtonDisabled]}
+                    onPress={() => sendMessage()}
+                    disabled={!inputText.trim() || busy}
+                    activeOpacity={busy ? 1 : 0.8}
                 >
-                    {loading ? (<ActivityIndicator color="white" size="small"/>) : (
+                    {busy ? (<ActivityIndicator color="white" size="small"/>) : (
                         <Text style={styles.sendButtonText}>Enviar</Text>)}
                 </TouchableOpacity>
             </View>
@@ -416,6 +443,10 @@ const styles = StyleSheet.create({
     timestamp: {fontSize: 12, marginTop: 4},
     userTimestamp: {color: 'rgba(255, 255, 255, 0.7)', textAlign: 'right'},
     aiTimestamp: {color: '#666'},
+    quickRowContainer: { paddingHorizontal: 12, paddingBottom: 6 },
+    quickRow: { paddingHorizontal: 4, gap: 6 },
+    quickChip: { backgroundColor: '#eef2ff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8, marginHorizontal: 2, borderWidth: 1, borderColor: '#dbe2ff' },
+    quickChipText: { color: '#1e3a8a', fontSize: 13, fontWeight: '600' },
     inputContainer: {
         flexDirection: 'row',
         paddingHorizontal: 16,

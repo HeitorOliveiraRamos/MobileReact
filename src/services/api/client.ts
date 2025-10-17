@@ -1,5 +1,7 @@
 import axios, {AxiosError, AxiosRequestHeaders, AxiosResponse, InternalAxiosRequestConfig} from 'axios';
 import {API_BASE_URL, API_TIMEOUT, getSecureHeaders} from './config';
+import { markSessionExpired } from './session';
+import { notifyGlobalError } from '../ui/globalError';
 
 let inMemoryToken: string | null = null;
 
@@ -105,9 +107,29 @@ api.interceptors.response.use(
             debugLog('  response headers:', error.response.headers);
             debugLog('  response data:', error.response.data);
         }
-        if (error.response?.status === 401) {
-            clearAuthToken();
-            console.warn('Falha na autenticação');
+        const status = error.response?.status;
+        const url = (cfg?.url || '') + '';
+        if (status === 401) {
+            const isLoginEndpoint = typeof url === 'string' && url.includes('/usuario/login');
+            if (isLoginEndpoint) {
+            } else {
+                clearAuthToken();
+                markSessionExpired();
+                console.warn('Sessão expirada');
+            }
+        } else if (status && status >= 400) {
+            const data: any = error.response?.data;
+            let title: string | undefined;
+            let message: string | undefined;
+            if (data && typeof data === 'object') {
+                if (typeof data.error === 'string' && data.error.trim()) title = data.error.trim();
+                if (typeof data.message === 'string' && data.message.trim()) message = data.message.trim();
+            } else if (typeof data === 'string' && data.trim()) {
+                message = data.trim();
+            }
+            if (!title) title = status >= 500 ? 'Erro do servidor' : 'Erro';
+            if (!message) message = `Requisição falhou com status ${status}`;
+            try { notifyGlobalError(title, message); } catch {}
         }
         if (!error.response) console.error('Erro de rede');
         if (error.response?.status && error.response.status >= 500) console.error('Erro do servidor');

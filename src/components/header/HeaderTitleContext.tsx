@@ -14,14 +14,11 @@ export function useHeaderTitle(): HeaderTitleContextValue {
   return React.useContext(HeaderTitleContext);
 }
 
-export function HeaderTitleProvider({ defaultTitle, children }: { defaultTitle: string; children: React.ReactNode }) {
-  const [title, setTitle] = React.useState<string | null>(null);
-
+export function HeaderTitleProvider({ title, setTitle, defaultTitle, children }: { title: string | null; setTitle: (title: string | null) => void; defaultTitle: string; children: React.ReactNode }) {
   React.useEffect(() => {
     setTitle(null);
-  }, [defaultTitle]);
+  }, [defaultTitle, setTitle]);
 
-  const value = React.useMemo(() => ({ title, setTitle }), [title]);
+  const value = React.useMemo(() => ({ title, setTitle }), [title, setTitle]);
   return <HeaderTitleContext.Provider value={value}>{children}</HeaderTitleContext.Provider>;
 }
-

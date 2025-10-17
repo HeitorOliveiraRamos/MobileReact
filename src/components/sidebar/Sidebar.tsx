@@ -5,12 +5,12 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 export type MenuItem = {
   key: string;
   label: string;
-  iconClosed?: string; // emoji or short text to show when collapsed
+  iconClosed?: string;
 };
 
 export type SidebarProps = {
   open: boolean;
-  widthStyle: any; // Animated style with width
+  widthStyle: any;
   title?: string;
   nome?: string | null;
   onToggle: () => void;
@@ -121,4 +121,3 @@ const styles = StyleSheet.create({
   logoutBtn: {borderRadius: 8, paddingVertical: 12, alignItems: 'center', backgroundColor: '#d93636'},
   logoutText: {color: '#fff', fontSize: 15, fontWeight: '600'},
 });
-

@@ -1,32 +1,45 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
-    Alert,
     Animated,
-    AppState,
-    Easing,
-    Image,
+    Modal,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
-    Modal
+    Easing,
+    AppState,
+    Image
 } from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import LoginScreen from './src/components/screens/LoginScreen';
-import {clearToken as clearTokenStorage, getToken, setToken, getNome, setNome, clearNome} from './src/services/storage/tokenStorage';
+import {
+    clearNome,
+    clearToken as clearTokenStorage,
+    getNome,
+    getToken,
+    setNome,
+    setToken
+} from './src/services/storage/tokenStorage';
 import SendFileScreen from './src/components/screens/SendFileScreen';
 import ChatScreen from './src/components/screens/ChatScreen';
+import ChatSelectorScreen from './src/components/screens/ChatSelectorScreen';
 import {clearAuthToken, isTokenValid, setAuthToken} from './src/services/api/client';
-import { endChat } from './src/services/api/chat';
-import { clearActiveChat } from './src/services/storage/chatStorage';
-import Sidebar, { MenuItem } from './src/components/sidebar/Sidebar';
-import { HeaderTitleProvider, useHeaderTitle } from './src/components/header/HeaderTitleContext';
+import {endChat} from './src/services/api/chat';
+import {clearActiveChat} from './src/services/storage/chatStorage';
+import Sidebar, {MenuItem} from './src/components/sidebar/Sidebar';
+import {HeaderTitleProvider, useHeaderTitle} from './src/components/header/HeaderTitleContext';
+import {useChatInFlight} from './src/services/api/chatBusy';
+import {clearSessionExpiredFlag, useSessionExpired} from './src/services/api/session';
+import { setGlobalErrorHandler } from './src/services/ui/globalError';
+import { ErrorModalContext } from './src/components/ErrorModalContext';
 
 type AppScreen = string;
 
 const SIDEBAR_OPEN_WIDTH = 220;
 const SIDEBAR_CLOSED_WIDTH = 60;
+
+
 
 function App() {
     const insets = useSafeAreaInsets();
@@ -41,7 +54,21 @@ function App() {
     const [titlePopupVisible, setTitlePopupVisible] = useState(false);
     const [titleIsTruncated, setTitleIsTruncated] = useState(false);
     const [logoutPopupVisible, setLogoutPopupVisible] = useState(false);
+    const sessionExpired = useSessionExpired();
     const sidebarWidth = useRef(new Animated.Value(SIDEBAR_CLOSED_WIDTH)).current;
+    const chatBusy = useChatInFlight();
+    const [headerTitle, setHeaderTitle] = useState<string | null>(null);
+    const [errorModal, setErrorModal] = useState<{visible: boolean; title: string; message: string} | null>(null);
+
+    const showErrorModal = useCallback((title: string, message: string) => {
+        if (!title.trim() && !message.trim()) return;
+        setErrorModal({ visible: true, title, message });
+    }, []);
+
+    useEffect(() => {
+        setGlobalErrorHandler(showErrorModal);
+        return () => setGlobalErrorHandler(null);
+    }, [showErrorModal]);
 
     const navigateToChat = useCallback((initialMessage?: string) => {
         setChatInitialMessage(initialMessage);
@@ -84,6 +111,18 @@ function App() {
             iconClosed: '📤',
             render: () => (
                 <SendFileScreen onNavigateToChat={navigateToChat} />
+            )
+        },
+        {
+            key: 'chatSelector',
+            label: 'Meus Chats',
+            iconClosed: '🗂️',
+            render: () => (
+                <ChatSelectorScreen
+                    onNavigateToChat={() => { setScreen('chat'); }}
+                    onStartNewChat={async () => { await handleNewChatPress(); setScreen('chat'); }}
+                    setHeaderTitle={setHeaderTitle}
+                />
             )
         },
         {
@@ -188,7 +227,6 @@ function App() {
     const handleLoggedIn = useCallback(async (newToken: string, newNome: string) => {
         try {
             if (!isTokenValid(newToken)) {
-                Alert.alert('Erro', 'Token inválido recebido');
                 return;
             }
             await setToken(newToken);
@@ -196,10 +234,10 @@ function App() {
             setTokenState(newToken);
             setNomeState(newNome ?? '');
             setAuthToken(newToken);
+            setErrorModal(null);
             setScreen('menu');
         } catch (error) {
             console.error('Error storing token/nome:', error);
-            Alert.alert('Erro', 'Falha ao salvar credenciais');
         }
     }, []);
 
@@ -209,6 +247,11 @@ function App() {
 
     const performLogout = useCallback(async () => {
         setLogoutPopupVisible(false);
+        await handleLogout();
+    }, [handleLogout]);
+
+    const performSessionRelog = useCallback(async () => {
+        clearSessionExpiredFlag();
         await handleLogout();
     }, [handleLogout]);
 
@@ -233,7 +276,8 @@ function App() {
     const defaultHeaderTitle = currentRoute.key === 'menu' ? 'Tecno Tooling' : currentRoute.label;
     const widthStyle = { width: sidebarWidth } as const;
 
-    return (<SafeAreaView edges={safeEdges} style={styles.safeAreaWhite}>
+    return (<ErrorModalContext.Provider value={{ showErrorModal }}>
+            <SafeAreaView edges={safeEdges} style={styles.safeAreaWhite}>
             <StatusBar translucent={false} backgroundColor={'#122033'} barStyle={'dark-content'}/>
             <Sidebar
                 open={sidebarOpen}
@@ -243,17 +287,17 @@ function App() {
                 onToggle={toggleSidebar}
                 items={menuItems}
                 activeKey={screen}
-                onSelect={(key) => { setScreen(key); closeSidebar(); }}
+                onSelect={(key) => { if (screen === 'chat' && chatBusy) return; setScreen(key); closeSidebar(); }}
                 onLogout={confirmLogout}
             />
             {sidebarOpen && (<TouchableOpacity style={[styles.overlay, {top: 0, bottom: 0}]} onPress={closeSidebar}
                                                activeOpacity={1}/>)}
-            <HeaderTitleProvider defaultTitle={defaultHeaderTitle}>
+            <HeaderTitleProvider title={headerTitle} setTitle={setHeaderTitle} defaultTitle={defaultHeaderTitle}>
                 <HeaderTitleRenderer
                     defaultTitle={defaultHeaderTitle}
                     screen={screen}
                     activeChatId={activeChatId}
-                    onNewChatPress={handleNewChatPress}
+                    onNewChatPress={async () => { await handleNewChatPress(); if (screen !== 'chat') setScreen('chat'); }}
                     titleIsTruncated={titleIsTruncated}
                     setTitleIsTruncated={setTitleIsTruncated}
                     bottomPadding={screen === 'chat' ? 0 : insets.bottom}
@@ -286,14 +330,50 @@ function App() {
                     </View>
                 </TouchableOpacity>
             </Modal>
-        </SafeAreaView>);
+                <Modal
+                visible={sessionExpired}
+                animationType="fade"
+                transparent
+            >
+                <View style={styles.popupBackdrop}>
+                    <View style={styles.titlePopupContainer}>
+                        <Text style={[styles.titlePopupText, {marginBottom: 8}]}>Sessão expirada</Text>
+                        <Text style={{fontSize: 14, color: '#4a5a6a', textAlign: 'center', marginBottom: 12}}>Sua sessão expirou. Faça login novamente.</Text>
+                        <View style={styles.popupButtonsRow}>
+                            <TouchableOpacity style={[styles.popupBtn, styles.popupBtnDestructive]} onPress={performSessionRelog} activeOpacity={0.8}>
+                                <Text style={[styles.popupBtnText, styles.popupBtnTextDestructive]}>Relogar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Error global modal */}
+            <Modal
+                visible={!!(errorModal?.visible && (errorModal.title.trim() || errorModal.message.trim()))}
+                animationType="fade"
+                transparent
+                onRequestClose={() => setErrorModal(null)}
+            >
+                <TouchableOpacity style={styles.popupBackdrop} activeOpacity={1} onPress={() => setErrorModal(null)}>
+                    <View style={styles.titlePopupContainer}>
+                        <Text style={styles.titlePopupText}>{errorModal?.title}</Text>
+                        <Text style={[styles.titlePopupText, {marginTop: 8, fontSize: 14, color: '#4a5a6a', textAlign: 'center'}]}>{errorModal?.message}</Text>
+                        <TouchableOpacity style={[styles.popupBtn, styles.popupBtnDestructive, {marginTop: 12}]} onPress={() => setErrorModal(null)} activeOpacity={0.8}>
+                            <Text style={[styles.popupBtnText, styles.popupBtnTextDestructive]}>Fechar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </SafeAreaView>
+        </ErrorModalContext.Provider>);
 }
 
 const HeaderTitleRenderer: React.FC<{
     defaultTitle: string;
     screen: string;
     activeChatId: number | null;
-    onNewChatPress: () => void;
+    onNewChatPress: () => void | Promise<void>;
     titleIsTruncated: boolean;
     setTitleIsTruncated: (v: boolean) => void;
     bottomPadding: number;
@@ -305,6 +385,7 @@ const HeaderTitleRenderer: React.FC<{
     const { title } = useHeaderTitle();
     const headerTitle = title ?? defaultTitle;
     const shouldOpenPopup = titleIsTruncated || (headerTitle?.length ?? 0) > 18;
+    const newChatDisabled = useChatInFlight();
     return (
         <View style={[styles.mainArea, {marginLeft: SIDEBAR_CLOSED_WIDTH, paddingBottom: bottomPadding}]}>
             <View style={[styles.header, styles.headerRow]}>
@@ -329,8 +410,9 @@ const HeaderTitleRenderer: React.FC<{
                     </TouchableOpacity>
                 </View>
                 <View style={styles.headerRight}>
-                    {screen === 'chat' && activeChatId != null ? (
-                        <TouchableOpacity onPress={onNewChatPress} activeOpacity={0.8} style={styles.newChatBtn}>
+                    {/* Show "+" in chat and chatSelector for quick new chat */}
+                    {((screen === 'chat' && activeChatId != null) || screen === 'chatSelector') ? (
+                        <TouchableOpacity onPress={newChatDisabled ? undefined : (onNewChatPress as any)} activeOpacity={newChatDisabled ? 1 : 0.8} style={[styles.newChatBtn, newChatDisabled && { backgroundColor: '#9CA3AF' }]} disabled={newChatDisabled}>
                             <Text style={styles.newChatBtnText}>+</Text>
                         </TouchableOpacity>
                     ) : (
@@ -388,7 +470,7 @@ const styles = StyleSheet.create({
         position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 900
     },
     newChatBtn: {
-        backgroundColor: '#007AFF',
+        backgroundColor: '#1d334d',
         width: 32,
         height: 32,
         borderRadius: 16,
